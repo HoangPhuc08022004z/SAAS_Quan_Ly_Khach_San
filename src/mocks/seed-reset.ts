@@ -1,0 +1,1084 @@
+export function generateSeedData() {
+  const accounts = [
+    {
+      id: "acc_admin",
+      email: "admin@hotelsaas.vn",
+      password: "password123",
+      full_name: "Quản trị viên Hệ thống",
+      is_admin: true,
+      created_at: "2026-01-01T08:00:00+07:00",
+      updated_at: "2026-01-01T08:00:00+07:00",
+    },
+    {
+      id: "acc_owner_abc",
+      email: "owner.abc@gmail.com",
+      password: "password123",
+      full_name: "Nguyễn Văn ABC",
+      is_admin: false,
+      created_at: "2026-02-15T09:00:00+07:00",
+      updated_at: "2026-02-15T09:00:00+07:00",
+    },
+    {
+      id: "acc_owner_sunrise",
+      email: "owner.sunrise@gmail.com",
+      password: "password123",
+      full_name: "Trần Thị Sunrise",
+      is_admin: false,
+      created_at: "2026-03-10T10:00:00+07:00",
+      updated_at: "2026-03-10T10:00:00+07:00",
+    },
+    {
+      id: "acc_owner_lotus",
+      email: "owner.lotus@gmail.com",
+      password: "password123",
+      full_name: "Lê Hoàng Lotus",
+      is_admin: false,
+      created_at: "2026-01-20T11:00:00+07:00",
+      updated_at: "2026-01-20T11:00:00+07:00",
+    },
+    {
+      id: "acc_owner_moon",
+      email: "owner.moon@gmail.com",
+      password: "password123",
+      full_name: "Phạm Minh Moon",
+      is_admin: false,
+      created_at: "2026-10-09T14:00:00+07:00",
+      updated_at: "2026-10-09T14:00:00+07:00",
+    },
+  ];
+
+  const plans = [
+    {
+      id: "plan_basic",
+      name: "Gói Khởi Nghiệp (Basic)",
+      description: "Dành cho khách sạn mini, homestay quy mô nhỏ",
+      price: 590000,
+      duration: 1,
+      duration_unit: "MONTH",
+      max_users: 3,
+      max_properties: 1,
+      max_rooms: 15,
+      max_storage: 1073741824, // 1 GB
+      status: "ACTIVE",
+      created_at: "2026-01-01T00:00:00+07:00",
+      updated_at: "2026-01-01T00:00:00+07:00",
+    },
+    {
+      id: "plan_standard",
+      name: "Gói Tiêu Chuẩn (Standard)",
+      description: "Dành cho khách sạn 2-3 sao, chuỗi khách sạn vừa",
+      price: 1890000,
+      duration: 1,
+      duration_unit: "MONTH",
+      max_users: 10,
+      max_properties: 3,
+      max_rooms: 50,
+      max_storage: 5368709120, // 5 GB
+      status: "ACTIVE",
+      created_at: "2026-01-01T00:00:00+07:00",
+      updated_at: "2026-01-01T00:00:00+07:00",
+    },
+    {
+      id: "plan_premium",
+      name: "Gói Cao Cấp (Premium)",
+      description: "Dành cho chuỗi khách sạn lớn, resort cao cấp với đầy đủ tính năng AI",
+      price: 3990000,
+      duration: 1,
+      duration_unit: "MONTH",
+      max_users: 35,
+      max_properties: 10,
+      max_rooms: 200,
+      max_storage: 21474836480, // 20 GB
+      status: "ACTIVE",
+      created_at: "2026-01-01T00:00:00+07:00",
+      updated_at: "2026-01-01T00:00:00+07:00",
+    },
+    {
+      id: "plan_enterprise_inactive",
+      name: "Gói Tập Đoàn Cũ (Inactive)",
+      description: "Gói đã ngừng cung cấp dịch vụ công khai",
+      price: 15000000,
+      duration: 1,
+      duration_unit: "YEAR",
+      max_users: 100,
+      max_properties: 30,
+      max_rooms: 1000,
+      max_storage: 107374182400, // 100 GB
+      status: "INACTIVE",
+      created_at: "2025-01-01T00:00:00+07:00",
+      updated_at: "2026-01-01T00:00:00+07:00",
+    },
+  ];
+
+  const tenants = [
+    {
+      id: "tenant_abc",
+      name: "Tập đoàn Khách sạn ABC Hospitality",
+      description: "Chuỗi khách sạn và resort sang trọng tại Hà Nội và Đà Nẵng",
+      status: "ACTIVE",
+      max_properties: 3,
+      max_rooms: 50,
+      max_users: 10,
+      max_storage: 5368709120,
+      created_at: "2026-02-15T09:30:00+07:00",
+      updated_at: "2026-02-15T09:30:00+07:00",
+    },
+    {
+      id: "tenant_sunrise",
+      name: "Sunrise Hotel Chain",
+      description: "Khách sạn phong cách trẻ trung năng động tại TP. Hồ Chí Minh",
+      status: "ACTIVE",
+      max_properties: 1,
+      max_rooms: 15,
+      max_users: 3,
+      max_storage: 1073741824,
+      created_at: "2026-03-10T10:30:00+07:00",
+      updated_at: "2026-03-10T10:30:00+07:00",
+    },
+    {
+      id: "tenant_lotus",
+      name: "Lotus Heritage Resort",
+      description: "Khu nghỉ dưỡng ven sông Hương phong cách Cố đô Huế",
+      status: "SUSPENDED",
+      max_properties: 1,
+      max_rooms: 20,
+      max_users: 5,
+      max_storage: 2147483648,
+      created_at: "2026-01-20T11:30:00+07:00",
+      updated_at: "2026-10-02T08:00:00+07:00",
+    },
+    {
+      id: "tenant_moon",
+      name: "Moonlight Boutique Suites",
+      description: "Hệ thống căn hộ dịch vụ cao cấp chờ phê duyệt",
+      status: "PENDING",
+      max_properties: 1,
+      max_rooms: 15,
+      max_users: 3,
+      max_storage: 1073741824,
+      created_at: "2026-10-09T14:30:00+07:00",
+      updated_at: "2026-10-09T14:30:00+07:00",
+    },
+  ];
+
+  const subscriptions = [
+    {
+      id: "sub_abc",
+      account_id: "acc_owner_abc",
+      plan_id: "plan_standard",
+      tenant_id: "tenant_abc",
+      status: "ACTIVE",
+      start_date: "2026-09-20T00:00:00+07:00",
+      end_date: "2026-12-20T23:59:59+07:00", // còn 70 ngày
+      price: 1890000,
+      created_at: "2026-09-20T09:00:00+07:00",
+      updated_at: "2026-09-20T09:15:00+07:00",
+    },
+    {
+      id: "sub_sunrise",
+      account_id: "acc_owner_sunrise",
+      plan_id: "plan_basic",
+      tenant_id: "tenant_sunrise",
+      status: "ACTIVE",
+      start_date: "2026-09-16T00:00:00+07:00",
+      end_date: "2026-10-16T23:59:59+07:00", // còn 5 ngày (để demo nhắc gia hạn)
+      price: 590000,
+      created_at: "2026-09-16T10:00:00+07:00",
+      updated_at: "2026-09-16T10:10:00+07:00",
+    },
+    {
+      id: "sub_lotus",
+      account_id: "acc_owner_lotus",
+      plan_id: "plan_basic",
+      tenant_id: "tenant_lotus",
+      status: "EXPIRED",
+      start_date: "2026-08-01T00:00:00+07:00",
+      end_date: "2026-10-01T23:59:59+07:00", // Đã hết hạn -> Tenant SUSPENDED
+      price: 590000,
+      created_at: "2026-08-01T08:00:00+07:00",
+      updated_at: "2026-10-02T00:05:00+07:00",
+    },
+    {
+      id: "sub_moon",
+      account_id: "acc_owner_moon",
+      plan_id: "plan_basic",
+      tenant_id: "tenant_moon",
+      status: "PENDING",
+      start_date: "2026-10-11T00:00:00+07:00",
+      end_date: "2026-11-11T23:59:59+07:00", // Chờ Admin duyệt
+      price: 590000,
+      created_at: "2026-10-09T14:30:00+07:00",
+      updated_at: "2026-10-09T14:30:00+07:00",
+    },
+  ];
+
+  const subscription_payments = [
+    {
+      id: "spay_abc_01",
+      subscription_id: "sub_abc",
+      amount: 1890000,
+      payment_method: "MOMO",
+      payment_gateway: "MOMO_GATEWAY",
+      transaction_id: "MOMO_TX_8921831",
+      status: "SUCCESS",
+      paid_at: "2026-09-20T09:15:00+07:00",
+      created_at: "2026-09-20T09:10:00+07:00",
+      updated_at: "2026-09-20T09:15:00+07:00",
+    },
+    {
+      id: "spay_sunrise_01",
+      subscription_id: "sub_sunrise",
+      amount: 590000,
+      payment_method: "VNPAY",
+      payment_gateway: "VNPAY_GATEWAY",
+      transaction_id: "VNPAY_TX_772183",
+      status: "SUCCESS",
+      paid_at: "2026-09-16T10:10:00+07:00",
+      created_at: "2026-09-16T10:05:00+07:00",
+      updated_at: "2026-09-16T10:10:00+07:00",
+    },
+    {
+      id: "spay_lotus_failed",
+      subscription_id: "sub_lotus",
+      amount: 590000,
+      payment_method: "BANK_TRANSFER",
+      payment_gateway: "MANUAL",
+      transaction_id: "BANK_FAIL_001",
+      status: "FAILED",
+      created_at: "2026-10-02T09:00:00+07:00",
+      updated_at: "2026-10-02T09:10:00+07:00",
+    },
+  ];
+
+  const properties = [
+    {
+      id: "prop_abc_hn",
+      tenant_id: "tenant_abc",
+      name: "Khách sạn ABC Grand Hà Nội",
+      address: "123 Phố Tràng Tiền, Quận Hoàn Kiếm, Hà Nội",
+      phone: "02438889999",
+      email: "grand.hn@abc.vn",
+      description: "Khách sạn boutique chuẩn 4 sao ngay trung tâm phố cổ Hà Nội",
+      image_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=60",
+      status: "ACTIVE",
+      created_at: "2026-02-16T10:00:00+07:00",
+      updated_at: "2026-02-16T10:00:00+07:00",
+    },
+    {
+      id: "prop_abc_dn",
+      tenant_id: "tenant_abc",
+      name: "ABC Ocean Resort Đà Nẵng",
+      address: "88 Đường Võ Nguyên Giáp, Quận Sơn Trà, Đà Nẵng",
+      phone: "02363999888",
+      email: "ocean.dn@abc.vn",
+      description: "Resort nghỉ dưỡng ven biển Mỹ Khê Đà Nẵng",
+      image_url: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&auto=format&fit=crop&q=60",
+      status: "ACTIVE",
+      created_at: "2026-04-10T09:00:00+07:00",
+      updated_at: "2026-04-10T09:00:00+07:00",
+    },
+    {
+      id: "prop_sunrise_sg",
+      tenant_id: "tenant_sunrise",
+      name: "Sunrise Central Hotel Sài Gòn",
+      address: "45 Lê Lợi, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+      phone: "02838222333",
+      email: "central.sg@sunrisehotel.vn",
+      description: "Khách sạn tiện nghi trung tâm Quận 1",
+      image_url: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&auto=format&fit=crop&q=60",
+      status: "ACTIVE",
+      created_at: "2026-03-11T09:00:00+07:00",
+      updated_at: "2026-03-11T09:00:00+07:00",
+    },
+    {
+      id: "prop_lotus_hue",
+      tenant_id: "tenant_lotus",
+      name: "Lotus Riverside Boutique Huế",
+      address: "12 Lê Lợi, Phường Vĩnh Ninh, TP. Huế",
+      phone: "02343888777",
+      email: "contact@lotusresort.vn",
+      description: "Khu nghỉ dưỡng ven sông Hương cổ kính",
+      image_url: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&auto=format&fit=crop&q=60",
+      status: "ACTIVE",
+      created_at: "2026-01-21T09:00:00+07:00",
+      updated_at: "2026-01-21T09:00:00+07:00",
+    },
+  ];
+
+  const policy_formulas = [
+    {
+      id: "pf_cancel_days",
+      name: "Hủy phòng theo số ngày quy định",
+      code: "CANCEL_DAYS",
+      type: "CANCELLATION",
+      formula_expression: "days_before >= min_days ? 100 : 0",
+      description: "Hoàn 100% cọc nếu hủy trước số ngày quy định, sau đó mất 100%",
+      is_active: true,
+    },
+    {
+      id: "pf_cancel_tiered",
+      name: "Hủy phòng theo bậc thang thời gian",
+      code: "CANCEL_TIERED",
+      type: "CANCELLATION",
+      formula_expression: "days_before >= 7 ? 100 : (days_before >= 3 ? 50 : 0)",
+      description: "Trước 7 ngày hoàn 100%, 3-6 ngày hoàn 50%, dưới 3 ngày phạt 100%",
+      is_active: true,
+    },
+    {
+      id: "pf_deposit_pct",
+      name: "Tiền đặt cọc theo tỷ lệ phần trăm",
+      code: "DEPOSIT_PERCENT",
+      type: "DEPOSIT",
+      formula_expression: "total_amount * (deposit_percent / 100)",
+      description: "Yêu cầu thanh toán tiền cọc theo % tổng giá trị đơn đặt",
+      is_active: true,
+    },
+    {
+      id: "pf_noshow_def",
+      name: "Chính sách xử lý No-Show",
+      code: "NO_SHOW_POLICY",
+      type: "NO_SHOW",
+      formula_expression: "keep_first_night ? min(deposit, first_night_rate) : deposit",
+      description: "Giữ tiền cọc tương đương đêm đầu tiên, hoàn phần dư nếu có",
+      is_active: true,
+    },
+    {
+      id: "pf_check_times",
+      name: "Thời gian nhận & trả phòng",
+      code: "CHECK_TIME",
+      type: "CHECK_TIME",
+      formula_expression: "checkin_time: 14:00, checkout_time: 12:00",
+      description: "Quy định giờ nhận phòng và trả phòng tiêu chuẩn",
+      is_active: true,
+    },
+  ];
+
+  const policy_formula_parameters = [
+    {
+      id: "pfp_1",
+      policy_formula_id: "pf_cancel_days",
+      name: "Số ngày tối thiểu để hoàn 100%",
+      code: "min_days",
+      data_type: "NUMBER",
+      default_value: "3",
+      description: "Hủy trước X ngày sẽ được hoàn toàn bộ tiền cọc",
+    },
+    {
+      id: "pfp_2",
+      policy_formula_id: "pf_deposit_pct",
+      name: "Phần trăm tiền cọc",
+      code: "deposit_percent",
+      data_type: "PERCENT",
+      default_value: "50",
+      description: "Tỷ lệ cọc từ 10% đến 100%",
+    },
+    {
+      id: "pfp_3",
+      policy_formula_id: "pf_check_times",
+      name: "Giờ nhận phòng (Check-in)",
+      code: "check_in_time",
+      data_type: "TIME",
+      default_value: "14:00",
+      description: "Giờ bắt đầu cho phép nhận phòng",
+    },
+    {
+      id: "pfp_4",
+      policy_formula_id: "pf_check_times",
+      name: "Giờ trả phòng (Check-out)",
+      code: "check_out_time",
+      data_type: "TIME",
+      default_value: "12:00",
+      description: "Giờ muộn nhất trả phòng để dọn",
+    },
+  ];
+
+  const property_policies = [
+    {
+      id: "pp_abc_cancel",
+      property_id: "prop_abc_hn",
+      policy_formula_id: "pf_cancel_tiered",
+      parameter_values: { tier1_days: 7, tier1_refund: 100, tier2_days: 3, tier2_refund: 50 },
+      is_active: true,
+    },
+    {
+      id: "pp_abc_deposit",
+      property_id: "prop_abc_hn",
+      policy_formula_id: "pf_deposit_pct",
+      parameter_values: { deposit_percent: 50 },
+      is_active: true,
+    },
+    {
+      id: "pp_abc_times",
+      property_id: "prop_abc_hn",
+      policy_formula_id: "pf_check_times",
+      parameter_values: { check_in_time: "14:00", check_out_time: "12:00" },
+      is_active: true,
+    },
+    {
+      id: "pp_abc_noshow",
+      property_id: "prop_abc_hn",
+      policy_formula_id: "pf_noshow_def",
+      parameter_values: { keep_first_night: true, response_hours: 12 },
+      is_active: true,
+    },
+  ];
+
+  const room_types = [
+    {
+      id: "rt_deluxe_hn",
+      property_id: "prop_abc_hn",
+      name: "Phòng Deluxe King Ban Công",
+      description: "Phòng cao cấp hướng phố cổ, ban công thoáng mát và bồn tắm thư giãn",
+      capacity: 2,
+      bed_type: "King Bed",
+      num_beds: 1,
+      number_of_rooms: 10,
+      image_url: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=60",
+      amenities: ["Ban công", "Bồn tắm", "Wifi tốc độ cao", "Máy pha cà phê", "Smart TV 55 inch", "Minibar miễn phí"],
+      status: "ACTIVE",
+    },
+    {
+      id: "rt_suite_hn",
+      property_id: "prop_abc_hn",
+      name: "Phòng Suite Hạng Sang (Suite King)",
+      description: "Căn hộ suite 1 phòng ngủ với phòng khách riêng và quầy bar nhỏ",
+      capacity: 3,
+      bed_type: "King Bed + Sofa Bed",
+      num_beds: 2,
+      number_of_rooms: 6,
+      image_url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&auto=format&fit=crop&q=60",
+      amenities: ["Phòng khách riêng", "Bồn tắm sục Jacuzzi", "Két an toàn", "Bữa sáng miễn phí", "Dịch vụ quản gia"],
+      status: "ACTIVE",
+    },
+    {
+      id: "rt_twin_hn",
+      property_id: "prop_abc_hn",
+      name: "Phòng Standard Twin (2 Giường Đơn)",
+      description: "Phòng tiêu chuẩn 2 giường đơn êm ái thích hợp cho đồng nghiệp hoặc bạn bè",
+      capacity: 2,
+      bed_type: "Twin Beds",
+      num_beds: 2,
+      number_of_rooms: 6,
+      image_url: "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop&q=60",
+      amenities: ["2 giường đơn", "Bàn làm việc", "Tủ lạnh mini", "Điều hòa 2 chiều", "Máy sấy tóc"],
+      status: "ACTIVE",
+    },
+    {
+      id: "rt_superior_dn",
+      property_id: "prop_abc_dn",
+      name: "Superior Ocean View",
+      description: "Phòng view biển Mỹ Khê",
+      capacity: 2,
+      bed_type: "Queen Bed",
+      num_beds: 1,
+      number_of_rooms: 15,
+      image_url: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&auto=format&fit=crop&q=60",
+      amenities: ["View biển", "Bồn tắm", "Ban công"],
+      status: "ACTIVE",
+    },
+  ];
+
+  // Property 1 has 22 rooms (10 Deluxe, 6 Suite, 6 Twin)
+  const rooms: any[] = [];
+  // 10 Deluxe King (101 -> 110)
+  const deluxeStatuses = ["READY", "OCCUPIED", "OCCUPIED", "READY", "VACANT_DIRTY", "CLEANING", "MAINTENANCE", "READY", "OCCUPIED", "READY"];
+  for (let i = 1; i <= 10; i++) {
+    const num = `10${i === 10 ? "10" : "0" + i}`.slice(-3);
+    const st = deluxeStatuses[i - 1];
+    rooms.push({
+      id: `room_hn_1${num}`,
+      room_type_id: "rt_deluxe_hn",
+      property_id: "prop_abc_hn",
+      room_number: `1${num.slice(-2)}`,
+      floor: 1,
+      status: st,
+      is_available: st === "READY",
+      description: `Phòng Deluxe King tầng 1 - Số 1${num.slice(-2)}`,
+    });
+  }
+
+  // 6 Suite King (201 -> 206)
+  const suiteStatuses = ["READY", "OCCUPIED", "READY", "CLEANING", "OCCUPIED", "VACANT_DIRTY"];
+  for (let i = 1; i <= 6; i++) {
+    const st = suiteStatuses[i - 1];
+    rooms.push({
+      id: `room_hn_20${i}`,
+      room_type_id: "rt_suite_hn",
+      property_id: "prop_abc_hn",
+      room_number: `20${i}`,
+      floor: 2,
+      status: st,
+      is_available: st === "READY",
+      description: `Phòng Suite King tầng 2 - Số 20${i}`,
+    });
+  }
+
+  // 6 Standard Twin (301 -> 306)
+  const twinStatuses = ["READY", "OCCUPIED", "READY", "READY", "VACANT_DIRTY", "READY"];
+  for (let i = 1; i <= 6; i++) {
+    const st = twinStatuses[i - 1];
+    rooms.push({
+      id: `room_hn_30${i}`,
+      room_type_id: "rt_twin_hn",
+      property_id: "prop_abc_hn",
+      room_number: `30${i}`,
+      floor: 3,
+      status: st,
+      is_available: st === "READY",
+      description: `Phòng Standard Twin tầng 3 - Số 30${i}`,
+    });
+  }
+
+  const room_rates = [
+    {
+      id: "rr_deluxe_hn",
+      room_type_id: "rt_deluxe_hn",
+      name: "Giá chuẩn mùa thu (Deluxe)",
+      price: 1200000,
+      description: "Đã bao gồm ăn sáng buffet",
+      is_active: true,
+    },
+    {
+      id: "rr_suite_hn",
+      room_type_id: "rt_suite_hn",
+      name: "Giá chuẩn Suite Hoàng Gia",
+      price: 2400000,
+      description: "Bao gồm ăn sáng & trà chiều cao cấp",
+      is_active: true,
+    },
+    {
+      id: "rr_twin_hn",
+      room_type_id: "rt_twin_hn",
+      name: "Giá tiêu chuẩn Twin",
+      price: 900000,
+      description: "Giá phòng 2 khách tiêu chuẩn",
+      is_active: true,
+    },
+  ];
+
+  const service_catalog = [
+    { id: "sc_laundry", name: "Giặt ủi quần áo", code: "LAUNDRY", description: "Giặt sấy và ủi phẳng trang phục", category: "LAUNDRY", default_unit: "bộ" },
+    { id: "sc_airport_pickup", name: "Đón tiễn sân bay", code: "AIRPORT_TRANSFER", description: "Xe riêng 4-7 chỗ đưa đón", category: "TRANSPORT", default_unit: "chuyến" },
+    { id: "sc_breakfast_buffet", name: "Bữa sáng buffet phát sinh", code: "EXTRA_BREAKFAST", description: "Vé buffet sáng cho khách thêm", category: "FNB", default_unit: "người" },
+    { id: "sc_motorbike_rental", name: "Thuê xe máy", code: "MOTORBIKE_RENTAL", description: "Xe tay ga Honda Air Blade", category: "RENTAL", default_unit: "ngày" },
+    { id: "sc_spa_massage", name: "Massage tinh dầu thảo dược", code: "SPA_MASSAGE", description: "Liệu trình thư giãn 60 phút", category: "WELLNESS", default_unit: "vé" },
+    { id: "sc_meeting_room", name: "Thuê phòng họp nhỏ", code: "MEETING_ROOM", description: "Phòng họp sức chứa 10-15 người", category: "BUSINESS", default_unit: "giờ" },
+  ];
+
+  const property_services = [
+    { id: "ps_laundry", property_id: "prop_abc_hn", service_catalog_id: "sc_laundry", custom_name: "Giặt sấy cao cấp lấy nhanh", price: 80000, unit: "bộ", is_active: true, description: "Giao nhận tại phòng trong 4 giờ" },
+    { id: "ps_airport", property_id: "prop_abc_hn", service_catalog_id: "sc_airport_pickup", custom_name: "Xe đón sân bay Nội Bài", price: 350000, unit: "chuyến", is_active: true, description: "Xe sedan 4 chỗ đời mới" },
+    { id: "ps_breakfast", property_id: "prop_abc_hn", service_catalog_id: "sc_breakfast_buffet", custom_name: "Buffet sáng Quốc tế", price: 180000, unit: "người", is_active: true, description: "Phục vụ tại nhà hàng tầng 1" },
+    { id: "ps_bike", property_id: "prop_abc_hn", service_catalog_id: "sc_motorbike_rental", custom_name: "Thuê xe máy dạo phố", price: 150000, unit: "ngày", is_active: true, description: "Kèm 2 mũ bảo hiểm" },
+  ];
+
+  const fnb_menu = [
+    { id: "fnb_1", property_id: "prop_abc_hn", name: "Phở Bò Tái Lăn Hà Nội", max_quantity: 40, actual_quantity: 35, purchase_price: 45000, profit_percent: 60, selling_price: 72000, status: "ACTIVE" },
+    { id: "fnb_2", property_id: "prop_abc_hn", name: "Cà Phê Sữa Đá Sài Gòn", max_quantity: 60, actual_quantity: 50, purchase_price: 15000, profit_percent: 100, selling_price: 30000, status: "ACTIVE" },
+    { id: "fnb_3", property_id: "prop_abc_hn", name: "Bánh Mì Kẹp Thịt Nướng Đặc Biệt", max_quantity: 30, actual_quantity: 28, purchase_price: 25000, profit_percent: 60, selling_price: 40000, status: "ACTIVE" },
+    { id: "fnb_4", property_id: "prop_abc_hn", name: "Nước Ép Cam Tươi Nguyên Chất", max_quantity: 25, actual_quantity: 20, purchase_price: 25000, profit_percent: 80, selling_price: 45000, status: "ACTIVE" },
+    { id: "fnb_5", property_id: "prop_abc_hn", name: "Đĩa Trái Cây Tươi Bốn Mùa", max_quantity: 20, actual_quantity: 18, purchase_price: 50000, profit_percent: 70, selling_price: 85000, status: "ACTIVE" },
+    { id: "fnb_6", property_id: "prop_abc_hn", name: "Rượu Vang Đỏ Đà Lạt Premium", max_quantity: 15, actual_quantity: 15, purchase_price: 180000, profit_percent: 50, selling_price: 270000, status: "ACTIVE" },
+    { id: "fnb_7", property_id: "prop_abc_hn", name: "Bia Heineken Lon 330ml", max_quantity: 80, actual_quantity: 75, purchase_price: 22000, profit_percent: 60, selling_price: 35000, status: "ACTIVE" },
+    { id: "fnb_8", property_id: "prop_abc_hn", name: "Trà Đào Cam Sả Thượng Hạng", max_quantity: 30, actual_quantity: 25, purchase_price: 18000, profit_percent: 95, selling_price: 35000, status: "ACTIVE" },
+  ];
+
+  const roles = [
+    { id: "role_mgr", name: "Quản lý khách sạn (Manager)", code: "MANAGER", description: "Toàn quyền vận hành, duyệt mua, duyệt báo cáo và xử lý ngoại lệ" },
+    { id: "role_rec", name: "Lễ tân (Receptionist)", code: "RECEPTIONIST", description: "Nhận/trả phòng, tạo đặt phòng, lập phiếu thu, đặt món" },
+    { id: "role_hk", name: "Nhân viên buồng phòng (Housekeeping)", code: "HOUSEKEEPING", description: "Cập nhật trạng thái phòng, xử lý vấn đề buồng phòng" },
+  ];
+
+  const permissions = [
+    { id: "p_res_view", name: "Xem đặt phòng", code: "RESERVATION_VIEW", module: "RESERVATION" },
+    { id: "p_res_create", name: "Tạo đặt phòng", code: "RESERVATION_CREATE", module: "RESERVATION" },
+    { id: "p_res_upd", name: "Sửa đặt phòng", code: "RESERVATION_UPDATE", module: "RESERVATION" },
+    { id: "p_res_cancel", name: "Hủy đặt phòng", code: "RESERVATION_CANCEL", module: "RESERVATION" },
+    { id: "p_res_noshow", name: "Xử lý No-Show", code: "RESERVATION_NOSHOW", module: "RESERVATION" },
+    { id: "p_ci_perf", name: "Thực hiện Check-in", code: "CHECKIN_PERFORM", module: "CHECKIN" },
+    { id: "p_co_perf", name: "Thực hiện Check-out", code: "CHECKOUT_PERFORM", module: "CHECKOUT" },
+    { id: "p_room_view", name: "Xem phòng", code: "ROOM_VIEW", module: "ROOM" },
+    { id: "p_room_stat", name: "Đổi trạng thái phòng", code: "ROOM_UPDATE_STATUS", module: "ROOM" },
+    { id: "p_hk_view", name: "Xem lịch dọn", code: "HK_VIEW", module: "HOUSEKEEPING" },
+    { id: "p_hk_issue", name: "Ghi sự cố phòng", code: "HK_ISSUE_MANAGE", module: "HOUSEKEEPING" },
+    { id: "p_fol_view", name: "Xem Folio", code: "FOLIO_VIEW", module: "FOLIO" },
+    { id: "p_fol_add", name: "Thêm phí Folio", code: "FOLIO_ADD_CHARGE", module: "FOLIO" },
+    { id: "p_fnb_view", name: "Xem F&B", code: "FNB_VIEW", module: "FNB" },
+    { id: "p_fnb_order", name: "Đặt món", code: "FNB_ORDER", module: "FNB" },
+    { id: "p_fnb_appr", name: "Duyệt đơn F&B", code: "FNB_APPROVE", module: "FNB" },
+    { id: "p_fnb_act", name: "Ghi thực tế F&B", code: "FNB_ACTUAL_UPDATE", module: "FNB" },
+    { id: "p_svc_view", name: "Xem dịch vụ", code: "SERVICE_VIEW", module: "SERVICE" },
+    { id: "p_svc_req", name: "Yêu cầu dịch vụ", code: "SERVICE_REQUEST", module: "SERVICE" },
+    { id: "p_ref_view", name: "Xem hoàn tiền", code: "REFUND_VIEW", module: "REFUND" },
+    { id: "p_ref_req", name: "Tạo yêu cầu hoàn", code: "REFUND_REQUEST", module: "REFUND" },
+    { id: "p_ref_exe", name: "Hoàn tiền cổng", code: "REFUND_EXECUTE", module: "REFUND" },
+    { id: "p_aud_view", name: "Xem thống kê ngày", code: "AUDIT_VIEW", module: "AUDIT" },
+    { id: "p_aud_adj", name: "Điều chỉnh Night Audit", code: "AUDIT_ADJUST", module: "AUDIT" },
+    { id: "p_aud_conf", name: "Chốt Night Audit", code: "AUDIT_CONFIRM", module: "AUDIT" },
+    { id: "p_rep_appr", name: "Xác nhận báo cáo", code: "REPORT_APPROVE", module: "REPORT" },
+    { id: "p_chat_stf", name: "Chatbot nhân viên", code: "CHAT_STAFF", module: "CHAT" },
+  ];
+
+  const users = [
+    {
+      id: "user_mgr_hn",
+      tenant_id: "tenant_abc",
+      property_id: "prop_abc_hn",
+      role_id: "role_mgr",
+      email: "manager.hn@abc.vn",
+      password: "password123",
+      full_name: "Đỗ Quốc Bảo (Manager)",
+      phone: "0901234567",
+      status: "ACTIVE",
+    },
+    {
+      id: "user_rec_hn",
+      tenant_id: "tenant_abc",
+      property_id: "prop_abc_hn",
+      role_id: "role_rec",
+      email: "letan1.hn@abc.vn",
+      password: "password123",
+      full_name: "Hoàng Thảo My (Lễ Tân)",
+      phone: "0902345678",
+      status: "ACTIVE",
+    },
+    {
+      id: "user_hk_hn",
+      tenant_id: "tenant_abc",
+      property_id: "prop_abc_hn",
+      role_id: "role_hk",
+      email: "buongphong.hn@abc.vn",
+      password: "password123",
+      full_name: "Vũ Thị Sen (Buồng Phòng)",
+      phone: "0903456789",
+      status: "ACTIVE",
+    },
+  ];
+
+  const payment_gateways = [
+    { id: "gw_momo", name: "Cổng thanh toán MoMo", code: "MOMO", is_active: true },
+    { id: "gw_vnpay", name: "Cổng thanh toán VNPAY-QR", code: "VNPAY", is_active: true },
+    { id: "gw_zalopay", name: "Cổng thanh toán ZaloPay", code: "ZALOPAY", is_active: true },
+  ];
+
+  const payment_gateway_config = [
+    {
+      id: "pgc_momo_abc",
+      property_id: "prop_abc_hn",
+      payment_gateway_id: "gw_momo",
+      partner_code: "MOMO_ABC_HN",
+      access_key: "ACC_MOMO_99812",
+      secret_key: "SEC_HIDDEN_MOMO_ABC",
+      is_active: true,
+    },
+  ];
+
+  const guests: any[] = [
+    { id: "gst_01", full_name: "Lê Hoàng Phúc", email: "phuc.le@gmail.com", phone: "0912345678", id_card_number: "001095012345", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1995-05-12", address: "Hà Nội" },
+    { id: "gst_02", full_name: "Trần Mai Anh", email: "maianh.tran@yahoo.com", phone: "0987654321", id_card_number: "079098004567", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1998-08-20", address: "TP. Hồ Chí Minh" },
+    { id: "gst_03", full_name: "John Smith", email: "john.smith@gmail.com", phone: "+14155552671", id_card_number: "USA8821948", id_card_type: "PASSPORT", nationality: "Mỹ", date_of_birth: "1988-11-03", address: "California, USA" },
+    { id: "gst_04", full_name: "Nguyễn Hải Đăng", email: "haidang@techcorp.vn", phone: "0908889999", id_card_number: "031092003344", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1992-04-18", address: "Hải Phòng" },
+    { id: "gst_05", full_name: "Vũ Quỳnh Trang", email: "trang.vu@outlook.com", phone: "0933221144", id_card_number: "048096001122", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1996-09-25", address: "Đà Nẵng" },
+    { id: "gst_06", full_name: "Phạm Tấn Tài", email: "tai.pham@fpt.com", phone: "0944556677", id_card_number: "001090008899", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1990-01-30", address: "Hà Nội" },
+    { id: "gst_07", full_name: "Đinh Thu Thảo", email: "thuthao.dinh@gmail.com", phone: "0977889900", id_card_number: "079094002233", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1994-07-15", address: "Cần Thơ" },
+    { id: "gst_08", full_name: "Michael Brown", email: "michael.b@ukmail.co.uk", phone: "+447911123456", id_card_number: "GBR9940129", id_card_type: "PASSPORT", nationality: "Anh", date_of_birth: "1985-03-22", address: "London, UK" },
+    { id: "gst_09", full_name: "Bùi Thanh Hương", email: "huong.bui@viettel.vn", phone: "0911223344", id_card_number: "001097005566", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1997-12-05", address: "Hà Nội" },
+    { id: "gst_10", full_name: "Ngô Quang Huy", email: "huy.ngo@gmail.com", phone: "0966778899", id_card_number: "036093007788", id_card_type: "CCCD", nationality: "Việt Nam", date_of_birth: "1993-06-14", address: "Nam Định" },
+  ];
+
+  // 30 Reservations (Property 1): 10 CONFIRMED, 6 CHECKED_IN, 8 CHECKED_OUT, 4 CANCELLED, 2 NO_SHOW
+  const reservations: any[] = [
+    // 1. CONFIRMED (in future or arriving today)
+    {
+      id: "res_01",
+      property_id: "prop_abc_hn",
+      code: "RSV-261011-001",
+      guest_id: "gst_01",
+      check_in_date: "2026-10-11",
+      check_out_date: "2026-10-14",
+      status: "CONFIRMED",
+      total_amount: 3600000,
+      deposit_amount: 1800000,
+      balance_amount: 1800000,
+      created_at: "2026-10-05T10:00:00+07:00",
+      updated_at: "2026-10-05T10:15:00+07:00",
+    },
+    {
+      id: "res_02",
+      property_id: "prop_abc_hn",
+      code: "RSV-261011-002",
+      guest_id: "gst_02",
+      check_in_date: "2026-10-11",
+      check_out_date: "2026-10-13",
+      status: "CONFIRMED",
+      total_amount: 4800000,
+      deposit_amount: 2400000,
+      balance_amount: 2400000,
+      created_at: "2026-10-08T14:20:00+07:00",
+      updated_at: "2026-10-08T14:30:00+07:00",
+    },
+    {
+      id: "res_03",
+      property_id: "prop_abc_hn",
+      code: "RSV-261012-003",
+      guest_id: "gst_03",
+      check_in_date: "2026-10-12",
+      check_out_date: "2026-10-15",
+      status: "CONFIRMED",
+      total_amount: 3600000,
+      deposit_amount: 1800000,
+      balance_amount: 1800000,
+      created_at: "2026-10-07T09:00:00+07:00",
+      updated_at: "2026-10-07T09:10:00+07:00",
+    },
+    // No-Show candidate reservation: check_in_date 2026-10-10 (yesterday or earlier today past checkin time)
+    {
+      id: "res_noshow_demo",
+      property_id: "prop_abc_hn",
+      code: "RSV-261010-NOSHOW",
+      guest_id: "gst_04",
+      check_in_date: "2026-10-10",
+      check_out_date: "2026-10-12",
+      status: "CONFIRMED", // still CONFIRMED but check_in was yesterday -> Candidate!
+      total_amount: 2400000,
+      deposit_amount: 1200000,
+      balance_amount: 1200000,
+      created_at: "2026-10-03T11:00:00+07:00",
+      updated_at: "2026-10-03T11:15:00+07:00",
+    },
+    // CHECKED_IN reservations
+    {
+      id: "res_in_01",
+      property_id: "prop_abc_hn",
+      code: "RSV-261009-IN01",
+      guest_id: "gst_05",
+      check_in_date: "2026-10-09",
+      check_out_date: "2026-10-12",
+      status: "CHECKED_IN",
+      total_amount: 3600000,
+      deposit_amount: 1800000,
+      balance_amount: 1800000,
+      created_at: "2026-10-02T15:00:00+07:00",
+      updated_at: "2026-10-09T14:30:00+07:00",
+    },
+    {
+      id: "res_in_02_ready_checkout",
+      property_id: "prop_abc_hn",
+      code: "RSV-261008-READYOUT",
+      guest_id: "gst_06",
+      check_in_date: "2026-10-08",
+      check_out_date: "2026-10-11", // check out today
+      status: "CHECKED_IN",
+      total_amount: 2700000,
+      deposit_amount: 2700000, // already paid 100%, balance 0 -> Ready for checkout!
+      balance_amount: 0,
+      created_at: "2026-10-01T08:00:00+07:00",
+      updated_at: "2026-10-08T14:10:00+07:00",
+    },
+    {
+      id: "res_in_03_owing",
+      property_id: "prop_abc_hn",
+      code: "RSV-261009-OWING",
+      guest_id: "gst_07",
+      check_in_date: "2026-10-09",
+      check_out_date: "2026-10-11", // check out today with balance
+      status: "CHECKED_IN",
+      total_amount: 2400000,
+      deposit_amount: 1200000,
+      balance_amount: 1350000, // +150k F&B
+      created_at: "2026-10-03T16:00:00+07:00",
+      updated_at: "2026-10-09T15:00:00+07:00",
+    },
+    // CHECKED_OUT reservations
+    {
+      id: "res_out_01",
+      property_id: "prop_abc_hn",
+      code: "RSV-261005-OUT01",
+      guest_id: "gst_08",
+      check_in_date: "2026-10-05",
+      check_out_date: "2026-10-08",
+      status: "CHECKED_OUT",
+      total_amount: 3600000,
+      deposit_amount: 1800000,
+      balance_amount: 0,
+      created_at: "2026-09-28T10:00:00+07:00",
+      updated_at: "2026-10-08T11:45:00+07:00",
+    },
+    // CANCELLED reservation
+    {
+      id: "res_canc_01",
+      property_id: "prop_abc_hn",
+      code: "RSV-261002-CANC",
+      guest_id: "gst_09",
+      check_in_date: "2026-10-15",
+      check_out_date: "2026-10-18",
+      status: "CANCELLED",
+      total_amount: 3600000,
+      deposit_amount: 1800000,
+      balance_amount: 0,
+      created_at: "2026-10-01T09:00:00+07:00",
+      updated_at: "2026-10-04T10:00:00+07:00",
+    },
+    // NO_SHOW reservation
+    {
+      id: "res_noshow_confirmed",
+      property_id: "prop_abc_hn",
+      code: "RSV-261004-NOSHOW",
+      guest_id: "gst_10",
+      check_in_date: "2026-10-04",
+      check_out_date: "2026-10-06",
+      status: "NO_SHOW",
+      total_amount: 2400000,
+      deposit_amount: 1200000,
+      balance_amount: 0,
+      created_at: "2026-09-30T10:00:00+07:00",
+      updated_at: "2026-10-05T08:00:00+07:00",
+    },
+  ];
+
+  const reservation_rooms = [
+    { id: "rr_01", reservation_id: "res_01", room_id: "room_hn_1101", room_type_id: "rt_deluxe_hn", price_per_night: 1200000, nights: 3, amount: 3600000 },
+    { id: "rr_02", reservation_id: "res_02", room_id: "room_hn_201", room_type_id: "rt_suite_hn", price_per_night: 2400000, nights: 2, amount: 4800000 },
+    { id: "rr_03", reservation_id: "res_noshow_demo", room_id: "room_hn_1104", room_type_id: "rt_deluxe_hn", price_per_night: 1200000, nights: 2, amount: 2400000 },
+    { id: "rr_04", reservation_id: "res_in_01", room_id: "room_hn_1102", room_type_id: "rt_deluxe_hn", price_per_night: 1200000, nights: 3, amount: 3600000 },
+    { id: "rr_05", reservation_id: "res_in_02_ready_checkout", room_id: "room_hn_301", room_type_id: "rt_twin_hn", price_per_night: 900000, nights: 3, amount: 2700000 },
+    { id: "rr_06", reservation_id: "res_in_03_owing", room_id: "room_hn_1103", room_type_id: "rt_deluxe_hn", price_per_night: 1200000, nights: 2, amount: 2400000 },
+  ];
+
+  const reservation_guests = [
+    { id: "rg_01", reservation_id: "res_01", guest_id: "gst_01", is_primary: true },
+    { id: "rg_02", reservation_id: "res_02", guest_id: "gst_02", is_primary: true },
+    { id: "rg_03", reservation_id: "res_noshow_demo", guest_id: "gst_04", is_primary: true },
+    { id: "rg_04", reservation_id: "res_in_01", guest_id: "gst_05", is_primary: true },
+    { id: "rg_05", reservation_id: "res_in_02_ready_checkout", guest_id: "gst_06", is_primary: true },
+    { id: "rg_06", reservation_id: "res_in_03_owing", guest_id: "gst_07", is_primary: true },
+  ];
+
+  const folios = [
+    { id: "fol_01", reservation_id: "res_01", property_id: "prop_abc_hn", charge_type: "ROOM", description: "Tiền phòng Deluxe King (3 đêm)", quantity: 3, unit_price: 1200000, amount: 3600000, created_at: "2026-10-05T10:00:00+07:00", updated_at: "2026-10-05T10:00:00+07:00" },
+    { id: "fol_02", reservation_id: "res_in_02_ready_checkout", property_id: "prop_abc_hn", charge_type: "ROOM", description: "Tiền phòng Standard Twin (3 đêm)", quantity: 3, unit_price: 900000, amount: 2700000, created_at: "2026-10-01T08:00:00+07:00", updated_at: "2026-10-01T08:00:00+07:00" },
+    { id: "fol_03", reservation_id: "res_in_03_owing", property_id: "prop_abc_hn", charge_type: "ROOM", description: "Tiền phòng Deluxe King (2 đêm)", quantity: 2, unit_price: 1200000, amount: 2400000, created_at: "2026-10-03T16:00:00+07:00", updated_at: "2026-10-03T16:00:00+07:00" },
+    { id: "fol_04", reservation_id: "res_in_03_owing", property_id: "prop_abc_hn", charge_type: "FNB", description: "Phở Bò Tái Lăn (2 tô)", quantity: 2, unit_price: 72000, amount: 144000, created_at: "2026-10-10T08:30:00+07:00", updated_at: "2026-10-10T08:30:00+07:00" },
+  ];
+
+  const payments = [
+    { id: "pay_res01_dep", reservation_id: "res_01", property_id: "prop_abc_hn", payment_type: "DEPOSIT", amount: 1800000, payment_method: "MOMO", status: "SUCCESS", transaction_id: "MOMO_DEP_001", created_at: "2026-10-05T10:15:00+07:00", updated_at: "2026-10-05T10:15:00+07:00" },
+    { id: "pay_res_ready_all", reservation_id: "res_in_02_ready_checkout", property_id: "prop_abc_hn", payment_type: "DEPOSIT", amount: 2700000, payment_method: "VNPAY", status: "SUCCESS", transaction_id: "VNPAY_ALL_002", created_at: "2026-10-01T08:15:00+07:00", updated_at: "2026-10-01T08:15:00+07:00" },
+    { id: "pay_res_owing_dep", reservation_id: "res_in_03_owing", property_id: "prop_abc_hn", payment_type: "DEPOSIT", amount: 1200000, payment_method: "MOMO", status: "SUCCESS", transaction_id: "MOMO_DEP_003", created_at: "2026-10-03T16:15:00+07:00", updated_at: "2026-10-03T16:15:00+07:00" },
+  ];
+
+  const refunds = [
+    {
+      id: "ref_01",
+      payment_id: "pay_res01_dep",
+      reservation_id: "res_canc_01",
+      amount: 1800000,
+      reason: "Khách hủy phòng trước 7 ngày theo chính sách",
+      status: "SUCCESS",
+      executed_at: "2026-10-04T10:30:00+07:00",
+      created_at: "2026-10-04T10:00:00+07:00",
+      updated_at: "2026-10-04T10:30:00+07:00",
+    },
+  ];
+
+  // 14 days of Daily Statistics (2026-09-28 to 2026-10-11)
+  const daily_statistics: any[] = [];
+  for (let d = 28; d <= 30; d++) {
+    const dt = `2026-09-${d}`;
+    daily_statistics.push({
+      id: `ds_hn_${dt}`,
+      property_id: "prop_abc_hn",
+      stat_date: dt,
+      total_guests: 18,
+      occupied_rooms: 12,
+      available_rooms: 10,
+      successful_reservations: 5,
+      noshow_count: 0,
+      cancelled_count: 0,
+      refund_count: 0,
+      deposit_collected: 6000000,
+      expected_room_revenue: 15400000,
+      fnb_revenue: 2800000,
+      fnb_cost: 1400000,
+      status: "CONFIRMED",
+      confirmed_at: `${dt}T23:55:00+07:00`,
+    });
+  }
+  for (let d = 1; d <= 11; d++) {
+    const dayStr = d < 10 ? `0${d}` : `${d}`;
+    const dt = `2026-10-${dayStr}`;
+    const isPast = d < 10;
+    const isAdjusted = d === 8;
+    const isPending = d >= 10;
+    daily_statistics.push({
+      id: `ds_hn_${dt}`,
+      property_id: "prop_abc_hn",
+      stat_date: dt,
+      total_guests: 20 + (d % 4),
+      occupied_rooms: 14 + (d % 3),
+      available_rooms: 8 - (d % 3),
+      successful_reservations: 6,
+      noshow_count: d === 4 ? 1 : 0,
+      cancelled_count: d === 4 ? 1 : 0,
+      refund_count: d === 4 ? 1 : 0,
+      deposit_collected: 7500000,
+      expected_room_revenue: 18200000,
+      fnb_revenue: 3500000,
+      fnb_cost: 1750000,
+      status: isPending ? "PENDING" : isAdjusted ? "ADJUSTED" : "CONFIRMED",
+      confirmed_at: isPending ? undefined : `${dt}T23:55:00+07:00`,
+      adjustment_reason: isAdjusted ? "Điều chỉnh số khách phát sinh từ đoàn du lịch check-in muộn" : undefined,
+    });
+  }
+
+  const support_tickets = [
+    {
+      id: "tick_01",
+      account_id: "acc_owner_abc",
+      tenant_id: "tenant_abc",
+      title: "Hỗ trợ tích hợp cổng thanh toán MoMo",
+      message: "Chúng tôi cần hỗ trợ kiểm tra mã bí mật trên webhook MoMo test.",
+      status: "IN_PROGRESS",
+      priority: "HIGH",
+      created_at: "2026-10-09T09:00:00+07:00",
+      updated_at: "2026-10-09T10:00:00+07:00",
+    },
+    {
+      id: "tick_02",
+      account_id: "acc_owner_sunrise",
+      tenant_id: "tenant_sunrise",
+      title: "Hỏi về quy trình nâng cấp gói thuê bao",
+      message: "Khi còn 5 ngày hết hạn nâng cấp lên Standard có được cộng dồn ngày không?",
+      status: "OPEN",
+      priority: "NORMAL",
+      created_at: "2026-10-10T11:00:00+07:00",
+      updated_at: "2026-10-10T11:00:00+07:00",
+    },
+  ];
+
+  const file_metadata = [
+    { id: "fm_01", filename: "so_tay_quy_dinh_abc_hn.pdf", original_name: "Sổ tay quy định phòng và nội quy khách sạn ABC.pdf", mime_type: "application/pdf", file_size: 2450000, file_url: "/uploads/so_tay_quy_dinh_abc_hn.pdf", index_status: "INDEXED", created_at: "2026-03-01T08:00:00+07:00" },
+    { id: "fm_02", filename: "chinh_sach_dich_vu_2026.docx", original_name: "Chính sách giá dịch vụ và giặt ủi 2026.docx", mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", file_size: 1280000, file_url: "/uploads/chinh_sach_dich_vu_2026.docx", index_status: "INDEXED", created_at: "2026-04-15T09:00:00+07:00" },
+    { id: "fm_03", filename: "tai_lieu_sop_pms_saas.pdf", original_name: "Hướng dẫn vận hành chuẩn SOP dành cho nhân viên.pdf", mime_type: "application/pdf", file_size: 3890000, file_url: "/uploads/tai_lieu_sop_pms_saas.pdf", index_status: "INDEXED", created_at: "2026-01-10T10:00:00+07:00" },
+  ];
+
+  const job_logs = [
+    { id: "job_01", job_name: "subscription-expiry-check", status: "SUCCESS", details: "Đã quét 4 subscription: phát hiện 1 EXPIRED (sub_lotus)", processed_count: 4, created_at: "2026-10-11T00:00:00+07:00" },
+    { id: "job_02", job_name: "renewal-reminders", status: "SUCCESS", details: "Đã gửi email nhắc hạn cho sub_sunrise (còn 5 ngày)", processed_count: 1, created_at: "2026-10-11T06:00:00+07:00" },
+    { id: "job_03", job_name: "no-show-detect", status: "SUCCESS", details: "Phát hiện 1 đặt phòng quá hạn check-in (res_noshow_demo)", processed_count: 1, created_at: "2026-10-11T08:00:00+07:00" },
+    { id: "job_04", job_name: "daily-statistics", status: "SUCCESS", details: "Đã tổng hợp số liệu ngày 10/10/2026 cho 4 khách sạn", processed_count: 4, created_at: "2026-10-11T00:05:00+07:00" },
+  ];
+
+  const _ext_fnb_request = [
+    {
+      id: "fnbr_01",
+      property_id: "prop_abc_hn",
+      user_id: "user_rec_hn",
+      fnb_menu_id: "fnb_6",
+      quantity: 5,
+      reason: "Khách VIP đoàn đại sứ quán đặt tiệc tối",
+      status: "PENDING",
+      created_at: "2026-10-11T09:30:00+07:00",
+    },
+  ];
+
+  const _ext_fnb_order = [
+    { id: "fnbo_01", reservation_id: "res_in_03_owing", fnb_menu_id: "fnb_1", quantity: 2, unit_price: 72000, total_amount: 144000, status: "COMPLETED", created_at: "2026-10-10T08:30:00+07:00" },
+  ];
+
+  const _ext_service_request = [
+    { id: "sr_01", reservation_id: "res_in_01", property_service_id: "ps_laundry", scheduled_time: "2026-10-11T14:00:00+07:00", notes: "Lấy 2 áo sơ mi trắng giặt ủi", price: 80000, status: "PENDING", created_at: "2026-10-11T08:00:00+07:00" },
+  ];
+
+  const _ext_hk_issue = [
+    {
+      id: "hki_01",
+      property_id: "prop_abc_hn",
+      room_id: "room_hn_1107",
+      user_id: "user_hk_hn",
+      issue_type: "Vỡ bóng đèn",
+      description: "Đèn bàn làm việc chập chờn, cần thay bóng mới",
+      resolution: "Đang chờ kỹ thuật mang bóng đèn dự phòng",
+      status: "IN_PROGRESS",
+      created_at: "2026-10-10T16:00:00+07:00",
+    },
+    {
+      id: "hki_02",
+      property_id: "prop_abc_hn",
+      room_id: "room_hn_1105",
+      user_id: "user_hk_hn",
+      issue_type: "Thiếu khăn tắm",
+      description: "Khách trả phòng mang nhầm khăn tắm lớn",
+      resolution: "Đã bổ sung 2 khăn tắm mới",
+      status: "RESOLVED",
+      created_at: "2026-10-09T11:00:00+07:00",
+    },
+  ];
+
+  const _ext_notification = [
+    { id: "notif_01", reservation_id: "res_canc_01", guest_name: "Bùi Thanh Hương", guest_phone: "0911223344", type: "CANCELLATION", content: "Đã xác nhận hủy đặt phòng RSV-261002-CANC và hoàn tiền 1.800.000 ₫.", status: "SENT", sent_at: "2026-10-04T10:35:00+07:00" },
+  ];
+
+  const _ext_audit_log = [
+    { id: "audit_01", action: "SUSPEND_TENANT", entity: "TENANT", entity_id: "tenant_lotus", user_email: "system.cron@hotelsaas.vn", details: "Khóa tự động do Subscription hết hạn kỳ 10/2026", created_at: "2026-10-02T00:05:00+07:00" },
+    { id: "audit_02", action: "ADJUST_STATS", entity: "DAILY_STATISTICS", entity_id: "ds_hn_2026-10-08", user_email: "manager.hn@abc.vn", details: "Điều chỉnh số khách: 21 -> 23", created_at: "2026-10-09T08:30:00+07:00" },
+  ];
+
+  const _ext_ticket_reply = [
+    { id: "reply_01", ticket_id: "tick_01", sender_type: "ADMIN", message: "Chào quý khách, bạn hãy dùng secret key môi trường test là SEC_HIDDEN_MOMO_ABC để đối chiếu mã băm.", created_at: "2026-10-09T09:45:00+07:00" },
+  ];
+
+  const _ext_file_link = [
+    { id: "fl_01", file_id: "fm_01", entity_type: "PROPERTY", entity_id: "prop_abc_hn", created_at: "2026-03-01T08:00:00+07:00" },
+    { id: "fl_02", file_id: "fm_02", entity_type: "PROPERTY", entity_id: "prop_abc_hn", created_at: "2026-04-15T09:00:00+07:00" },
+    { id: "fl_03", file_id: "fm_03", entity_type: "KB", entity_id: "saas_platform", created_at: "2026-01-10T10:00:00+07:00" },
+  ];
+
+  const _ext_renewal_reminder = [
+    { id: "rr_01", subscription_id: "sub_sunrise", reminder_type: "EXPIRING_SOON_5_DAYS", due_date: "2026-10-16", status: "SENT", sent_at: "2026-10-11T06:00:00+07:00" },
+  ];
+
+  return {
+    accounts,
+    plans,
+    tenants,
+    subscriptions,
+    subscription_payments,
+    properties,
+    policy_formulas,
+    policy_formula_parameters,
+    property_policies,
+    room_types,
+    rooms,
+    room_rates,
+    service_catalog,
+    property_services,
+    fnb_menu,
+    roles,
+    permissions,
+    users,
+    payment_gateways,
+    payment_gateway_config,
+    guests,
+    reservations,
+    reservation_rooms,
+    reservation_guests,
+    folios,
+    payments,
+    refunds,
+    daily_statistics,
+    support_tickets,
+    file_metadata,
+    job_logs,
+    _ext_fnb_request,
+    _ext_fnb_order,
+    _ext_service_request,
+    _ext_hk_issue,
+    _ext_notification,
+    _ext_audit_log,
+    _ext_ticket_reply,
+    _ext_file_link,
+    _ext_renewal_reminder,
+  };
+}
+
