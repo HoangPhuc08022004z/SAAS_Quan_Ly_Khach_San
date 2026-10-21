@@ -454,3 +454,41 @@ export interface ApiErrorResponse {
   fieldErrors?: Record<string, string>;
   traceId: string;
 }
+
+// Re-export OpenAPI Types
+export type {
+  DurationUnit,
+  PlanStatus,
+  SubscriptionStatus as OpenApiSubscriptionStatus,
+  TenantStatus as OpenApiTenantStatus,
+  PaymentStatus as OpenApiPaymentStatus,
+  TicketStatus,
+  ErrorResponse,
+  MessageResponse,
+  RegisterRequest,
+  RegisterResponse,
+  LoginRequest,
+  LoginResponse,
+  SubscriptionPlan,
+  SubscriptionPlanResponse,
+  SubscriptionPlanCreateRequest,
+  SubscriptionRequest,
+  SubscriptionRequestResult,
+  SendRequestResponse,
+  ResubmitResponse,
+  RetryPaymentResponse,
+  PendingSubscription,
+  PendingSubscriptionResponse,
+  EarlyRenewalRequest,
+  LateRenewalRequest,
+  RenewalRequest,
+  RenewalPaymentResponse,
+  UserProfile,
+  UserProfileResponse,
+  SupportTicketAdminResponse,
+  SupportTicketStatusRequest,
+  OpenApiFileMetadata,
+  FileMessageResponse,
+  FileErrorResponse,
+  ISaasOpenApiService,
+} from "./openapi.interface";

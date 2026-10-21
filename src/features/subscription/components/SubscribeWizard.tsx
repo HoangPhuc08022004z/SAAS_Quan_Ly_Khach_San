@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoneyText } from "@/components/data/MoneyText";
 import { formatBytes } from "@/lib/utils/format";
-import { api } from "@/lib/api";
+import { api, sendSubscriptionRequest } from "@/lib/api";
 import { toast } from "sonner";
 import { Check, CheckCircle2, Building, ShieldCheck, ArrowRight, ArrowLeft, Clock, Sparkles } from "lucide-react";
 
@@ -38,6 +38,18 @@ export function SubscribeWizard({ plans }: { plans: any[] }) {
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     try {
+      try {
+        // Gọi OpenAPI: POST /api/v1/user/sendRequest
+        const planIdNum = parseInt(String(selectedPlanId).replace(/\D/g, "") || "1", 10);
+        await sendSubscriptionRequest({
+          planId: planIdNum,
+          name: tenantName.trim(),
+          description: tenantDescription.trim(),
+        });
+      } catch (backendErr) {
+        console.warn("Backend sendRequest error, using local fallback:", backendErr);
+      }
+
       await api.createSubscriptionRequest({
         plan_id: selectedPlanId,
         tenant_name: tenantName.trim(),

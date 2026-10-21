@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plan } from "@/lib/api/types";
-import { api } from "@/lib/api";
+import { api, createSubscriptionPlan, updateSubscriptionPlan } from "@/lib/api";
 import { FormField } from "@/components/forms/FormField";
 import { MoneyInput } from "@/components/forms/MoneyInput";
 import { bytesToMB, mbToBytes } from "@/lib/utils/format";
@@ -51,10 +51,35 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
         status,
       };
 
+      const openApiPayload = {
+        name,
+        description,
+        price: Number(price),
+        duration: Number(duration),
+        durationUnit,
+        maxUsers: Number(maxUsers),
+        maxProperties: Number(maxProperties),
+        maxRooms: Number(maxRooms),
+        maxStorage: mbToBytes(Number(storageMB)),
+      };
+
       if (initialPlan) {
+        try {
+          // Gọi OpenAPI: PUT /api/v1/saas/admin/Plan/{planId}
+          const planIdNum = parseInt(initialPlan.id.replace(/\D/g, "") || "1", 10);
+          await updateSubscriptionPlan(planIdNum, openApiPayload);
+        } catch (backendErr) {
+          console.warn("Backend updatePlan error, using local fallback:", backendErr);
+        }
         await api.adminUpdatePlan(initialPlan.id, payload);
         toast.success("Cập nhật gói dịch vụ thành công!");
       } else {
+        try {
+          // Gọi OpenAPI: POST /api/v1/saas/admin/createPlan
+          await createSubscriptionPlan(openApiPayload);
+        } catch (backendErr) {
+          console.warn("Backend createPlan error, using local fallback:", backendErr);
+        }
         await api.adminCreatePlan(payload);
         toast.success("Tạo gói dịch vụ mới thành công!");
       }

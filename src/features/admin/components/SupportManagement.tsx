@@ -4,7 +4,12 @@ import React, { useState } from "react";
 import { DataTable, Column } from "@/components/data/DataTable";
 import { StatusBadge } from "@/components/data/StatusBadge";
 import { DateText } from "@/components/data/DateText";
-import { api } from "@/lib/api";
+import {
+  api,
+  updateTicketStatus,
+  fetchSupportTicketDetail,
+  fetchSupportTickets,
+} from "@/lib/api";
 import { toast } from "sonner";
 import { HelpCircle, MessageSquare, Send, X, User } from "lucide-react";
 
@@ -19,6 +24,14 @@ export function SupportManagement({ initialTickets }: { initialTickets: any[] })
   const openTicketDetail = async (ticket: any) => {
     setSelectedTicket(ticket);
     try {
+      try {
+        // Gọi OpenAPI: GET /api/v1/saas/admin/support-tickets/{ticketId}
+        const ticketIdNum = parseInt(String(ticket.id).replace(/\D/g, "") || "1", 10);
+        await fetchSupportTicketDetail(ticketIdNum);
+      } catch (backendErr) {
+        console.warn("Backend getTicket error, using local fallback:", backendErr);
+      }
+
       const full = await api.adminGetTicket(ticket.id);
       setSelectedTicket(full);
       setReplies(full.replies || []);
@@ -30,6 +43,16 @@ export function SupportManagement({ initialTickets }: { initialTickets: any[] })
   const handleUpdateStatus = async (status: string) => {
     if (!selectedTicket) return;
     try {
+      try {
+        // Gọi OpenAPI: PATCH /api/v1/saas/admin/support-tickets/{ticketId}/status
+        const ticketIdNum = parseInt(String(selectedTicket.id).replace(/\D/g, "") || "1", 10);
+        if (status === "RESOLVED" || status === "CLOSED") {
+          await updateTicketStatus(ticketIdNum, status);
+        }
+      } catch (backendErr) {
+        console.warn("Backend updateTicketStatus error, using local fallback:", backendErr);
+      }
+
       const updated = await api.adminUpdateTicket(selectedTicket.id, status);
       setSelectedTicket((prev: any) => ({ ...prev, status: updated.status }));
       setTickets((prev) => prev.map((t) => (t.id === updated.id ? { ...t, status: updated.status } : t)));

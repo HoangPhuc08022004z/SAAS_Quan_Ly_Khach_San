@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/data/StatusBadge";
 import { MoneyText } from "@/components/data/MoneyText";
 import { DateText } from "@/components/data/DateText";
 import { ReasonDialog } from "@/components/feedback/ReasonDialog";
-import { api } from "@/lib/api";
+import { api, approveSubscription, rejectSubscription } from "@/lib/api";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, ArrowLeft, Shield } from "lucide-react";
 
@@ -112,6 +112,14 @@ export function SubscriptionDetailView({ subscription }: { subscription: any }) 
   const handleApprove = async () => {
     setIsLoading(true);
     try {
+      try {
+        // Gọi OpenAPI: POST /api/admin/subscriptions/{subscriptionId}/approve
+        const subIdNum = parseInt(String(sub.id).replace(/\D/g, "") || "1", 10);
+        await approveSubscription(subIdNum);
+      } catch (backendErr) {
+        console.warn("Backend approve error, using local fallback:", backendErr);
+      }
+
       const updated = await api.adminApproveSubscription(sub.id);
       setSub((prev: any) => ({ ...prev, status: updated.status }));
       toast.success("Đã phê duyệt yêu cầu thuê bao! Chủ khách sạn có thể thanh toán để kích hoạt.");
@@ -126,6 +134,14 @@ export function SubscriptionDetailView({ subscription }: { subscription: any }) 
   const handleRejectConfirm = async (reason: string) => {
     setIsLoading(true);
     try {
+      try {
+        // Gọi OpenAPI: POST /api/admin/subscriptions/{subscriptionId}/reject
+        const subIdNum = parseInt(String(sub.id).replace(/\D/g, "") || "1", 10);
+        await rejectSubscription(subIdNum);
+      } catch (backendErr) {
+        console.warn("Backend reject error, using local fallback:", backendErr);
+      }
+
       const updated = await api.adminRejectSubscription(sub.id, reason);
       setSub((prev: any) => ({ ...prev, status: updated.status }));
       setIsRejectOpen(false);

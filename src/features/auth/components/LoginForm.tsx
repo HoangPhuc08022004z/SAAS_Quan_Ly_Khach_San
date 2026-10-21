@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginFormData } from "../schemas/auth.schema";
-import { api } from "@/lib/api";
+import { api, loginUser, saasApi } from "@/lib/api";
 import { useSessionStore } from "@/lib/auth/session-store";
 import { FormField } from "@/components/forms/FormField";
 import { DemoAccountPicker } from "./DemoAccountPicker";
@@ -34,6 +34,20 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
+      // Gọi API OpenAPI: POST /api/v1/saas/user/login
+      const loginRes = await loginUser({
+        email: data.email,
+        password: data.password,
+      });
+
+      // token null = sai mật khẩu (backend trả 400 với token: null)
+      if (!loginRes.token) {
+        throw new Error(loginRes.message || "Sai email hoặc mật khẩu.");
+      }
+
+      saasApi.setToken(loginRes.token);
+
+      // Đồng bộ thông tin phiên làm việc cho giao diện (mock local session)
       const res = await api.loginAccount(data);
       setAccountSession({
         account: res.account,

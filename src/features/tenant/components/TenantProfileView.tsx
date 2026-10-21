@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/data/StatusBadge";
 import { formatBytes } from "@/lib/utils/format";
-import { api } from "@/lib/api";
+import { api, fetchUserProfile } from "@/lib/api";
 import { toast } from "sonner";
 import { Building2, Save, Shield, CheckCircle, Info } from "lucide-react";
 
@@ -14,6 +14,20 @@ export function TenantProfileView({ initialTenant }: { initialTenant: any }) {
   const [name, setName] = useState(initialTenant?.name || "");
   const [description, setDescription] = useState(initialTenant?.description || "");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    // Gọi OpenAPI: GET /api/v1/user/profile
+    fetchUserProfile()
+      .then((profile) => {
+        if (profile?.tenantName) {
+          setName((prev: string) => prev || profile.tenantName || "");
+        }
+      })
+      .catch((err) => {
+        // Backend not running or token not set yet
+        console.debug("Backend profile fetch:", err?.message);
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

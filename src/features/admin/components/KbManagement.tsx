@@ -7,7 +7,12 @@ import { FileDropzone } from "@/components/forms/FileDropzone";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { formatBytes } from "@/lib/utils/format";
 import { DateText } from "@/components/data/DateText";
-import { api } from "@/lib/api";
+import {
+  api,
+  uploadKnowledgePdf,
+  deleteKnowledgePdf,
+  readKnowledgePdfContents,
+} from "@/lib/api";
 import { toast } from "sonner";
 import { FileText, RefreshCw, Trash2, Database, UploadCloud } from "lucide-react";
 
@@ -20,6 +25,17 @@ export function KbManagement({ initialFiles }: { initialFiles: any[] }) {
   const handleUpload = async (fileObj: { name: string; size: number; type: string }) => {
     setIsUploading(true);
     try {
+      try {
+        // Gọi OpenAPI: POST /api/files/pdf
+        if (fileObj instanceof File) {
+          await uploadKnowledgePdf(fileObj);
+        } else if ((fileObj as any).file instanceof File) {
+          await uploadKnowledgePdf((fileObj as any).file);
+        }
+      } catch (backendErr) {
+        console.warn("Backend uploadPdf error, using fallback:", backendErr);
+      }
+
       const created = await api.adminUploadKbFile(fileObj as any);
       setFiles((prev) => [created, ...prev]);
       toast.success(`Đã tải lên tài liệu "${fileObj.name}" thành công.`);
@@ -46,6 +62,14 @@ export function KbManagement({ initialFiles }: { initialFiles: any[] }) {
   const handleDelete = async () => {
     if (!fileToDelete) return;
     try {
+      try {
+        // Gọi OpenAPI: DELETE /api/files/pdf/{fileId}
+        const fileIdNum = parseInt(String(fileToDelete.id).replace(/\D/g, "") || "1", 10);
+        await deleteKnowledgePdf(fileIdNum);
+      } catch (backendErr) {
+        console.warn("Backend deletePdf error, using fallback:", backendErr);
+      }
+
       await api.adminDeleteKbFile(fileToDelete.id);
       setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
       toast.success("Đã xóa tài liệu khỏi cơ sở tri thức.");

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { MessageSquare, Send, X, Bot, Sparkles, AlertCircle } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, askChatbot } from "@/lib/api";
 import { DisclaimerNote } from "./DisclaimerNote";
 import { SourceCitations } from "./SourceCitations";
 import { FeedbackButtons, TypingIndicator, RoleSuggestionChips } from "./ChatHelpers";
@@ -84,7 +84,18 @@ export function ChatWidget({
       } else if (mode === "staff") {
         botResponse = await api.askStaffBot(query, { role: role?.code || "MANAGER", propertyId: targetPropId });
       } else {
-        botResponse = await api.askSupportBot(query);
+        try {
+          // Gọi OpenAPI: GET /api/v1/chat/saas?question={query}
+          const openApiAnswer = await askChatbot(query);
+          if (openApiAnswer) {
+            botResponse = {
+              answer: openApiAnswer,
+              canEscalateToTicket: openApiAnswer.includes("ticket"),
+            };
+          }
+        } catch {
+          botResponse = await api.askSupportBot(query);
+        }
       }
 
       setMessages((prev) => [

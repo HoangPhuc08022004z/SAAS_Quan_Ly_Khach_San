@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, RegisterFormData } from "../schemas/auth.schema";
-import { api } from "@/lib/api";
+import { registerUser } from "@/lib/api";
 import { FormField } from "@/components/forms/FormField";
 import { PasswordStrengthHint } from "./PasswordStrengthHint";
 import { toast } from "sonner";
@@ -34,7 +34,13 @@ export function RegisterForm() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      await api.registerAccount(data);
+      // Gọi API OpenAPI: POST /api/v1/saas/user/register
+      await registerUser({
+        email: data.email,
+        password: data.password,
+        name: data.full_name,
+      });
+
       toast.success("Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
       router.push(`/login?email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {

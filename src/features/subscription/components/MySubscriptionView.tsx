@@ -9,7 +9,14 @@ import { DateText } from "@/components/data/DateText";
 import { UsageMeter } from "@/components/data/UsageMeter";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { formatBytes } from "@/lib/utils/format";
-import { api } from "@/lib/api";
+import {
+  api,
+  earlyRenewalSubscription,
+  lateRenewalSubscription,
+  resubmitSubscription,
+  retryInitialPayment,
+  fetchUserProfile,
+} from "@/lib/api";
 import { toast } from "sonner";
 import {
   CreditCard,
@@ -21,6 +28,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   Clock,
+  RotateCcw,
+  Send,
 } from "lucide-react";
 
 export function MySubscriptionView({
@@ -38,10 +47,39 @@ export function MySubscriptionView({
   const [reminders] = useState(initialReminders);
   const [isRenewing, setIsRenewing] = useState(false);
   const [isRenewDialogOpen, setIsRenewDialogOpen] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+  const [isRetryingPayment, setIsRetryingPayment] = useState(false);
 
   const handleRenew = async () => {
     setIsRenewing(true);
     try {
+      const planIdNum = parseInt(
+        String(sub.plan?.id || sub.plan_id || "1").replace(/\D/g, "") || "1",
+        10
+      );
+
+      try {
+        if (sub.status === "EXPIRED") {
+          // Gọi OpenAPI: POST /api/v1/user/subscriptions/late-renewal
+          const res = await lateRenewalSubscription({ planId: planIdNum });
+          if (res?.paymentUrl) {
+            toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+            window.location.href = res.paymentUrl;
+            return;
+          }
+        } else {
+          // Gọi OpenAPI: POST /api/v1/user/subscriptions/early-renewal
+          const res = await earlyRenewalSubscription({ planId: planIdNum });
+          if (res?.paymentUrl) {
+            toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+            window.location.href = res.paymentUrl;
+            return;
+          }
+        }
+      } catch (backendErr) {
+        console.warn("Backend renewal API error, using local fallback:", backendErr);
+      }
+
       const updated = await api.renewMySubscription();
       setSub((prev: any) => ({ ...prev, end_date: updated.end_date, status: updated.status }));
       setIsRenewDialogOpen(false);
@@ -54,8 +92,46 @@ export function MySubscriptionView({
     }
   };
 
+  const handleResubmit = async () => {
+    setIsResubmitting(true);
+    try {
+      // Gọi OpenAPI: POST /api/v1/user/subscriptions/resubmit
+      const res = await resubmitSubscription();
+      setSub((prev: any) => ({
+        ...prev,
+        status: res.subscriptionStatus || "PENDING_APPROVAL",
+      }));
+      toast.success(res.message || "Đã gửi lại yêu cầu Subscription để SaaS Admin xét duyệt.");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể gửi lại yêu cầu.");
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
+
+  const handleRetryPayment = async () => {
+    setIsRetryingPayment(true);
+    try {
+      // Gọi OpenAPI: POST /api/v1/user/subscriptions/retry-payment
+      const res = await retryInitialPayment();
+      if (res?.checkoutUrl) {
+        toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+      toast.success(res?.message || "Đã tạo phiên thanh toán mới và gửi link qua email.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể khởi tạo phiên thanh toán Stripe.");
+    } finally {
+      setIsRetryingPayment(false);
+    }
+  };
+
   const isExpired = sub.status === "EXPIRED";
-  const isPending = sub.status === "PENDING";
+  const isPending = sub.status === "PENDING" || sub.status === "PENDING_APPROVAL";
+  const isPendingPayment = sub.status === "PENDING_PAYMENT";
+  const isRejected = sub.status === "REJECTED";
   const isActive = sub.status === "ACTIVE";
 
   return (
@@ -75,14 +151,33 @@ export function MySubscriptionView({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {isPending && (
-              <Link
-                href="/owner/subscription/pay"
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm"
+            {isPendingPayment && (
+              <button
+                onClick={handleRetryPayment}
+                disabled={isRetryingPayment}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm disabled:opacity-50"
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span>Thanh toán ngay</span>
-              </Link>
+                <span>{isRetryingPayment ? "Đang xử lý..." : "Thanh toán Stripe (Retry)"}</span>
+              </button>
+            )}
+
+            {isRejected && (
+              <button
+                onClick={handleResubmit}
+                disabled={isResubmitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-sm disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{isResubmitting ? "Đang gửi..." : "Gửi lại yêu cầu xét duyệt"}</span>
+              </button>
+            )}
+
+            {isPending && !isPendingPayment && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-xl border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Chờ SaaS Admin duyệt</span>
+              </span>
             )}
 
             {(isActive || isExpired) && (
