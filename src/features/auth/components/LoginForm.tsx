@@ -9,9 +9,17 @@ import { loginSchema, LoginFormData } from "../schemas/auth.schema";
 import { api, loginUser, saasApi } from "@/lib/api";
 import { useSessionStore } from "@/lib/auth/session-store";
 import { FormField } from "@/components/forms/FormField";
-import { DemoAccountPicker } from "./DemoAccountPicker";
 import { toast } from "sonner";
 import { ArrowRight, Loader2, Hotel } from "lucide-react";
+
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(decodeURIComponent(escape(atob(b64))));
+  } catch {
+    return null;
+  }
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -21,7 +29,6 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -47,8 +54,29 @@ export function LoginForm() {
 
       saasApi.setToken(loginRes.token);
 
-      // Đồng bộ thông tin phiên làm việc cho giao diện (mock local session)
-      const res = await api.loginAccount(data);
+      // Đồng bộ thông tin phiên làm việc cho giao diện.
+      // Tài khoản thật từ backend thường không có trong mock DB → không để lỗi mock
+      // che mất việc đăng nhập thật đã thành công.
+      let session: Awaited<ReturnType<typeof api.loginAccount>>;
+      try {
+        session = await api.loginAccount(data);
+      } catch {
+        const claims = decodeJwtPayload(loginRes.token);
+        const roles = JSON.stringify(claims?.role ?? claims?.roles ?? claims?.authorities ?? "");
+        const now = new Date().toISOString();
+        session = {
+          token: loginRes.token,
+          account: {
+            id: String(claims?.sub ?? data.email),
+            email: data.email,
+            full_name: String(claims?.name ?? claims?.userName ?? data.email),
+            is_admin: /admin/i.test(roles),
+            created_at: now,
+            updated_at: now,
+          },
+        };
+      }
+      const res = session;
       setAccountSession({
         account: res.account,
         tenant: res.tenant,
@@ -68,15 +96,8 @@ export function LoginForm() {
     }
   };
 
-  const handlePickDemo = (email: string, pass: string) => {
-    setValue("email", email);
-    setValue("password", pass);
-  };
-
   return (
     <div className="space-y-5">
-      <DemoAccountPicker onSelect={handlePickDemo} />
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <FormField label="Email tài khoản" error={errors.email?.message} required>
           <input

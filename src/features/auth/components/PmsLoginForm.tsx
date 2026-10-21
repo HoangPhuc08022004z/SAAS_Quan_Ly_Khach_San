@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/auth/session-store";
 import { FormField } from "@/components/forms/FormField";
 import { toast } from "sonner";
-import { ArrowRight, Loader2, Hotel, AlertOctagon, UserCheck } from "lucide-react";
+import { ArrowRight, Loader2, Hotel, AlertOctagon } from "lucide-react";
 
 export function PmsLoginForm() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export function PmsLoginForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -30,12 +29,6 @@ export function PmsLoginForm() {
       password: "password123",
     },
   });
-
-  const staffDemos = [
-    { email: "manager.hn@abc.vn", label: "Quản lý (Manager)" },
-    { email: "letan1.hn@abc.vn", label: "Lễ tân (Receptionist)" },
-    { email: "buongphong.hn@abc.vn", label: "Buồng phòng (Housekeeping)" },
-  ];
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
@@ -64,30 +57,6 @@ export function PmsLoginForm() {
 
   return (
     <div className="space-y-5">
-      {/* Demo staff pickers */}
-      <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/60 space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-          <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-          <span>Tài khoản Demo PMS (Mật khẩu: 123456):</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-          {staffDemos.map((s) => (
-            <button
-              key={s.email}
-              type="button"
-              onClick={() => {
-                setValue("email", s.email);
-                setValue("password", "123456");
-              }}
-              className="text-left px-2.5 py-1.5 text-[11px] rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:text-blue-600 transition-colors shadow-2xs"
-            >
-              <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">{s.label}</div>
-              <div className="text-[10px] text-slate-400 truncate">{s.email}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {lockError && (
         <div className="flex items-start gap-3 p-3.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-300 text-xs">
           <AlertOctagon className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />

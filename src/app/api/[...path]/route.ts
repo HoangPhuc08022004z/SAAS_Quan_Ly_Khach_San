@@ -53,7 +53,8 @@ async function proxyRequest(
 ) {
   const path = params.path.join("/");
   const searchParams = req.nextUrl.searchParams.toString();
-  const targetUrl = `${BACKEND_URL}/${path}${searchParams ? `?${searchParams}` : ""}`;
+  // Route nằm ở /api/[...path] nên params.path đã bị mất tiền tố "api" → thêm lại
+  const targetUrl = `${BACKEND_URL.replace(/\/+$/, "")}/api/${path}${searchParams ? `?${searchParams}` : ""}`;
 
   // Xây dựng headers — override Origin để khớp với giá trị backend chấp nhận
   const forwardHeaders: Record<string, string> = {
