@@ -5,7 +5,7 @@ import { DataTable, Column } from "@/components/data/DataTable";
 import { StatusBadge } from "@/components/data/StatusBadge";
 import { DateText } from "@/components/data/DateText";
 import { ChatWidget } from "@/components/chat/ChatWidget";
-import { api } from "@/lib/api";
+import { api, askChatbot } from "@/lib/api";
 import { toast } from "sonner";
 import {
   HelpCircle,
@@ -75,23 +75,29 @@ export function OwnerSupportView({ initialTickets }: { initialTickets: any[] }) 
     setIsBotThinking(true);
 
     try {
-      const botRes = await api.askSupportBot(userText);
+      // Gọi OpenAPI: GET /api/v1/chat/saas?question=
+      const answer = await askChatbot(userText);
       setChatMessages((prev) => [
         ...prev,
         {
           id: `b_${Date.now()}`,
           sender: "bot",
-          text: botRes.answer,
-          sources: (botRes as any).sources,
+          text: answer,
         },
       ]);
-    } catch {
+    } catch (err: any) {
+      const detail = String(err?.message || "");
+      // 403 = chưa đăng nhập / token hết hạn / tài khoản không phải Owner (ví dụ Admin)
+      const reason = /403|Forbidden|HTTP 403/i.test(detail)
+        ? "Phiên đăng nhập đã hết hạn hoặc tài khoản không có quyền dùng chatbot (chỉ dành cho Owner). Vui lòng đăng nhập lại bằng tài khoản Owner."
+        : "Hiện tại tôi gặp sự cố khi tra cứu cơ sở tri thức. Quý khách vui lòng tạo ticket để kỹ thuật viên hỗ trợ trực tiếp.";
+      console.error("[chatbot]", detail);
       setChatMessages((prev) => [
         ...prev,
         {
           id: `b_${Date.now()}`,
           sender: "bot",
-          text: "Xin lỗi, hiện tại tôi gặp sự cố khi tra cứu cơ sở tri thức. Quý khách vui lòng tạo ticket để kỹ thuật viên hỗ trợ trực tiếp.",
+          text: `Xin lỗi, ${reason}${detail ? ` (Chi tiết: ${detail})` : ""}`,
         },
       ]);
     } finally {

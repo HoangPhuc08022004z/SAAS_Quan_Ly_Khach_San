@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils/cn";
 import { formatBytes } from "@/lib/utils/format";
 
 interface FileDropzoneProps {
-  onFileSelect: (file: { name: string; size: number; type: string }) => void;
+  onFileSelect: (file: { name: string; size: number; type: string }, rawFile: File) => void;
   acceptedTypes?: string[];
   maxSizeBytes?: number;
   className?: string;
@@ -37,11 +37,14 @@ export function FileDropzone({
     }
 
     setError(null);
-    onFileSelect({
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    });
+    onFileSelect(
+      {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      },
+      file
+    );
   };
 
   return (

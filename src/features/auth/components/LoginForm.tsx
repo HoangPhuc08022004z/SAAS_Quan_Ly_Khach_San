@@ -6,20 +6,12 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginFormData } from "../schemas/auth.schema";
-import { api, loginUser, saasApi } from "@/lib/api";
+import { loginUser, resolveAccountRole, saasApi } from "@/lib/api";
+import { getOwnerLanding } from "@/lib/auth/owner-landing";
 import { useSessionStore } from "@/lib/auth/session-store";
 import { FormField } from "@/components/forms/FormField";
 import { toast } from "sonner";
 import { ArrowRight, Loader2, Hotel } from "lucide-react";
-
-function decodeJwtPayload(token: string): Record<string, any> | null {
-  try {
-    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(decodeURIComponent(escape(atob(b64))));
-  } catch {
-    return null;
-  }
-}
 
 export function LoginForm() {
   const router = useRouter();
@@ -33,8 +25,8 @@ export function LoginForm() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "owner.abc@gmail.com",
-      password: "password123",
+      email: "",
+      password: "",
     },
   });
 
@@ -54,43 +46,44 @@ export function LoginForm() {
 
       saasApi.setToken(loginRes.token);
 
-      // Đồng bộ thông tin phiên làm việc cho giao diện.
-      // Tài khoản thật từ backend thường không có trong mock DB → không để lỗi mock
-      // che mất việc đăng nhập thật đã thành công.
-      let session: Awaited<ReturnType<typeof api.loginAccount>>;
-      try {
-        session = await api.loginAccount(data);
-      } catch {
-        const claims = decodeJwtPayload(loginRes.token);
-        const roles = JSON.stringify(claims?.role ?? claims?.roles ?? claims?.authorities ?? "");
-        const now = new Date().toISOString();
-        session = {
-          token: loginRes.token,
-          account: {
-            id: String(claims?.sub ?? data.email),
-            email: data.email,
-            full_name: String(claims?.name ?? claims?.userName ?? data.email),
-            is_admin: /admin/i.test(roles),
-            created_at: now,
-            updated_at: now,
-          },
-        };
-      }
-      const res = session;
+      // Backend không đưa role vào JWT → xác định role bằng cách thử endpoint theo quyền
+      const resolved = await resolveAccountRole();
+      const now = new Date().toISOString();
+      const isAdmin = resolved.role === "ADMIN";
+      const profile = resolved.role === "OWNER" ? resolved.profile : null;
+      const account = {
+        id: data.email,
+        email: data.email,
+        full_name: profile?.userName || (isAdmin ? "SaaS Admin" : data.email),
+        is_admin: isAdmin,
+        created_at: now,
+        updated_at: now,
+      };
+      const currentTenant = useSessionStore.getState().tenant;
       setAccountSession({
-        account: res.account,
-        tenant: res.tenant,
-        subscription: res.subscription,
+        account,
+        tenant:
+          profile?.tenantName && currentTenant
+            ? { ...currentTenant, name: profile.tenantName }
+            : undefined,
       });
+      const res = { account };
 
       toast.success(`Đăng nhập thành công! Chào mừng ${res.account.full_name}`);
       if (res.account.is_admin) {
         router.push("/admin");
       } else {
-        router.push("/owner");
+        router.push(getOwnerLanding(profile?.subscriptionStatus));
       }
     } catch (err: any) {
-      toast.error(err?.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại email/mật khẩu.");
+      saasApi.setToken(null);
+      // Backend trả 500 khi email không tồn tại (NullPointerException)
+      const msg = String(err?.message || "");
+      toast.error(
+        !msg || /nội bộ|HTTP 500/i.test(msg)
+          ? "Email hoặc mật khẩu không chính xác."
+          : msg
+      );
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +96,8 @@ export function LoginForm() {
           <input
             {...register("email")}
             type="email"
-            placeholder="admin@hotelsaas.vn hoặc owner@gmail.com"
+            autoComplete="off"
+            placeholder=""
             className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           />
         </FormField>
@@ -112,6 +106,7 @@ export function LoginForm() {
           <input
             {...register("password")}
             type="password"
+            autoComplete="new-password"
             placeholder="••••••••"
             className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           />

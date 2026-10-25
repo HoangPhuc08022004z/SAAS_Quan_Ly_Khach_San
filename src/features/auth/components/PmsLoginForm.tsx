@@ -25,8 +25,8 @@ export function PmsLoginForm() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "letan1.hn@abc.vn",
-      password: "password123",
+      email: "",
+      password: "",
     },
   });
 

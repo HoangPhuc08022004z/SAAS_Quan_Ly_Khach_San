@@ -1,16 +1,28 @@
 // FR-S02, FR-S03: Trang chủ và bảng giá gói dịch vụ SaaS
-// Service: api.listPublicPlans
+// API: GET /api/v1/saas/user/Plan/List (public); fallback mock nếu backend không phản hồi
 
 import React from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, fetchPlans } from "@/lib/api";
+import { toPlan } from "@/lib/api/adapters";
+import type { Plan } from "@/lib/api/types";
+
+export const dynamic = "force-dynamic";
+
+async function loadPlans(): Promise<Plan[]> {
+  try {
+    return (await fetchPlans()).filter((p) => p.status === "ACTIVE").map(toPlan);
+  } catch {
+    return api.listPublicPlans();
+  }
+}
 import { PublicHeader, PublicFooter } from "@/features/public/components/PublicNav";
 import { HeroSection } from "@/features/public/components/HeroSection";
 import { PlanGrid } from "@/features/public/components/PlanGrid";
 import { Building2, ArrowRight } from "lucide-react";
 
 export default async function HomePage() {
-  const plans = await api.listPublicPlans();
+  const plans = await loadPlans();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">

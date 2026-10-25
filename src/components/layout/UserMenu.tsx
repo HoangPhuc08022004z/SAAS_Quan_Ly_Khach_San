@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, LogOut, Shield, Hotel, Sparkles, ChevronDown } from "lucide-react";
+import { saasApi } from "@/lib/api";
 import { useSession } from "@/lib/auth/use-session";
 
 export function UserMenu() {
@@ -16,6 +17,7 @@ export function UserMenu() {
   const roleLabel = isAdmin ? "SaaS Admin" : isOwner ? "Chủ khách sạn (Owner)" : role?.name || "Nhân viên PMS";
 
   const handleLogout = () => {
+    saasApi.setToken(null);
     logoutAll();
     router.push("/login");
   };

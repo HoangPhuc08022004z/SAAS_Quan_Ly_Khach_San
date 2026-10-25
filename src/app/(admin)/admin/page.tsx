@@ -66,7 +66,7 @@ export default async function AdminDashboardPage() {
 
       {/* Lower Grids: Pending approvals & Expiring */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PendingApprovalList list={pendingSubscriptions} />
+        <PendingApprovalList />
         <ExpiringTenantTable list={expiringTenants} />
       </div>
     </div>

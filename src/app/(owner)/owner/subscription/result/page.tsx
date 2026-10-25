@@ -1,5 +1,5 @@
 // FR: FR-S08, FR-S09
-// Service: api.getSubscriptionPayment, api.simulatePaymentWebhook
+// API: poll GET /api/v1/user/profile đến khi Subscription ACTIVE
 import React, { Suspense } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PaymentResultView } from "@/features/subscription/components/PaymentFlow";

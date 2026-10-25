@@ -1,7 +1,7 @@
 // FR-S01: Đăng nhập nền tảng SaaS
 // Service: api.loginAccount, api.getCurrentAccount
 
-import React from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { Hotel } from "lucide-react";
@@ -28,7 +28,9 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
         </div>
 
         <div className="text-center text-xs text-slate-500">

@@ -4,11 +4,13 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoneyText } from "@/components/data/MoneyText";
 import { formatBytes } from "@/lib/utils/format";
-import { api, sendSubscriptionRequest } from "@/lib/api";
+import { sendSubscriptionRequest } from "@/lib/api";
+import { durationUnitLabel } from "@/lib/api/adapters";
+import type { Plan } from "@/lib/api/types";
 import { toast } from "sonner";
 import { Check, CheckCircle2, Building, ShieldCheck, ArrowRight, ArrowLeft, Clock, Sparkles } from "lucide-react";
 
-export function SubscribeWizard({ plans }: { plans: any[] }) {
+export function SubscribeWizard({ plans }: { plans: Plan[] }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id || "");
@@ -38,27 +40,16 @@ export function SubscribeWizard({ plans }: { plans: any[] }) {
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     try {
-      try {
-        // Gọi OpenAPI: POST /api/v1/user/sendRequest
-        const planIdNum = parseInt(String(selectedPlanId).replace(/\D/g, "") || "1", 10);
-        await sendSubscriptionRequest({
-          planId: planIdNum,
-          name: tenantName.trim(),
-          description: tenantDescription.trim(),
-        });
-      } catch (backendErr) {
-        console.warn("Backend sendRequest error, using local fallback:", backendErr);
-      }
-
-      await api.createSubscriptionRequest({
-        plan_id: selectedPlanId,
-        tenant_name: tenantName.trim(),
-        tenant_description: tenantDescription.trim(),
+      // Gọi OpenAPI: POST /api/v1/user/sendRequest
+      await sendSubscriptionRequest({
+        planId: Number(selectedPlanId),
+        name: tenantName.trim(),
+        description: tenantDescription.trim(),
       });
       toast.success("Đã gửi yêu cầu đăng ký thuê bao thành công!");
       setStep(4);
-    } catch {
-      toast.error("Có lỗi xảy ra khi gửi yêu cầu.");
+    } catch (err: any) {
+      toast.error(err?.message || "Có lỗi xảy ra khi gửi yêu cầu.");
     } finally {
       setIsSubmitting(false);
     }
@@ -100,14 +91,14 @@ export function SubscribeWizard({ plans }: { plans: any[] }) {
             <p className="text-xs text-slate-500">Chọn giải pháp phù hợp với quy mô chuỗi hoặc khách sạn của bạn.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="flex flex-wrap justify-center gap-5">
             {plans.map((p) => {
               const isSelected = selectedPlanId === p.id;
               return (
                 <div
                   key={p.id}
                   onClick={() => setSelectedPlanId(p.id)}
-                  className={`cursor-pointer rounded-2xl p-5 border-2 transition-all space-y-4 relative ${
+                  className={`cursor-pointer rounded-2xl p-5 border-2 transition-all space-y-4 relative w-full md:w-[calc(33.333%-0.85rem)] ${
                     isSelected
                       ? "border-blue-600 bg-blue-50/20 shadow-md dark:border-blue-500 dark:bg-blue-950/20"
                       : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900"
@@ -125,7 +116,7 @@ export function SubscribeWizard({ plans }: { plans: any[] }) {
 
                   <div className="py-2 border-y border-slate-100 dark:border-slate-800">
                     <MoneyText amount={p.price} className="text-xl font-black text-slate-900 dark:text-white" />
-                    <span className="text-xs text-slate-400"> / {p.duration_days} ngày</span>
+                    <span className="text-xs text-slate-400"> / {p.duration} {durationUnitLabel(p.duration_unit)}</span>
                   </div>
 
                   <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
@@ -247,7 +238,7 @@ export function SubscribeWizard({ plans }: { plans: any[] }) {
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-500">Thời hạn sử dụng:</span>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedPlan.duration_days} ngày</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedPlan.duration} {durationUnitLabel(selectedPlan.duration_unit)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-500">Giới hạn tài nguyên:</span>

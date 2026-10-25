@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plan } from "@/lib/api/types";
-import { api, createSubscriptionPlan, updateSubscriptionPlan } from "@/lib/api";
+import { createSubscriptionPlan, updateSubscriptionPlan } from "@/lib/api";
 import { FormField } from "@/components/forms/FormField";
 import { MoneyInput } from "@/components/forms/MoneyInput";
 import { bytesToMB, mbToBytes } from "@/lib/utils/format";
@@ -27,7 +27,6 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
   const [maxRooms, setMaxRooms] = useState(initialPlan?.max_rooms || 20);
   const [maxUsers, setMaxUsers] = useState(initialPlan?.max_users || 5);
   const [storageMB, setStorageMB] = useState(initialPlan ? bytesToMB(initialPlan.max_storage) : 2048);
-  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">(initialPlan?.status || "ACTIVE");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,19 +37,6 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
 
     setIsLoading(true);
     try {
-      const payload: Partial<Plan> = {
-        name,
-        description,
-        price,
-        duration,
-        duration_unit: durationUnit,
-        max_properties: Number(maxProperties),
-        max_rooms: Number(maxRooms),
-        max_users: Number(maxUsers),
-        max_storage: mbToBytes(Number(storageMB)),
-        status,
-      };
-
       const openApiPayload = {
         name,
         description,
@@ -60,27 +46,16 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
         maxUsers: Number(maxUsers),
         maxProperties: Number(maxProperties),
         maxRooms: Number(maxRooms),
-        maxStorage: mbToBytes(Number(storageMB)),
+        maxStorage: mbToBytes(Number(storageMB)), // backend lưu bytes
       };
 
       if (initialPlan) {
-        try {
-          // Gọi OpenAPI: PUT /api/v1/saas/admin/Plan/{planId}
-          const planIdNum = parseInt(initialPlan.id.replace(/\D/g, "") || "1", 10);
-          await updateSubscriptionPlan(planIdNum, openApiPayload);
-        } catch (backendErr) {
-          console.warn("Backend updatePlan error, using local fallback:", backendErr);
-        }
-        await api.adminUpdatePlan(initialPlan.id, payload);
+        // Gọi OpenAPI: PUT /api/v1/saas/admin/Plan/{planId}
+        await updateSubscriptionPlan(Number(initialPlan.id), openApiPayload);
         toast.success("Cập nhật gói dịch vụ thành công!");
       } else {
-        try {
-          // Gọi OpenAPI: POST /api/v1/saas/admin/createPlan
-          await createSubscriptionPlan(openApiPayload);
-        } catch (backendErr) {
-          console.warn("Backend createPlan error, using local fallback:", backendErr);
-        }
-        await api.adminCreatePlan(payload);
+        // Gọi OpenAPI: POST /api/v1/saas/admin/createPlan (Plan mới luôn ACTIVE)
+        await createSubscriptionPlan(openApiPayload);
         toast.success("Tạo gói dịch vụ mới thành công!");
       }
       router.push("/admin/plans");
@@ -92,7 +67,7 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Tên gói dịch vụ" required className="sm:col-span-2">
           <input
@@ -181,16 +156,6 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
           />
         </FormField>
 
-        <FormField label="Trạng thái cung cấp" required className="sm:col-span-2">
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-          >
-            <option value="ACTIVE">Hoạt động (Cho phép đăng ký)</option>
-            <option value="INACTIVE">Tạm ngưng (Ẩn khỏi bảng giá)</option>
-          </select>
-        </FormField>
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">

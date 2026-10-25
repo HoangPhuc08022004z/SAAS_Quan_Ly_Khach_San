@@ -34,7 +34,7 @@ export function PlanCard({ plan, isPopular }: { plan: Plan; isPopular?: boolean 
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-2xl border p-6 bg-white shadow-sm transition-all hover:shadow-lg dark:bg-slate-900",
+        "relative flex flex-col w-full rounded-2xl border p-6 bg-white shadow-sm transition-all hover:shadow-lg dark:bg-slate-900",
         isPopular
           ? "border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10"
           : "border-slate-200/80 dark:border-slate-800"
@@ -88,9 +88,11 @@ export function PlanCard({ plan, isPopular }: { plan: Plan; isPopular?: boolean 
 
 export function PlanGrid({ plans }: { plans: Plan[] }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+    <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
       {plans.map((p) => (
-        <PlanCard key={p.id} plan={p} isPopular={p.id === "plan_standard"} />
+        <div key={p.id} className="w-full md:w-[calc(33.333%-1rem)] flex">
+          <PlanCard plan={p} isPopular={p.id === "plan_standard"} />
+        </div>
       ))}
     </div>
   );

@@ -85,6 +85,17 @@ async function proxyRequest(
       body: body || undefined,
     });
 
+    // ngrok trả 404 HTML khi tunnel tắt (ERR_NGROK_3200) → báo rõ thay vì "404" khó hiểu
+    const ngrokError = backendRes.headers.get("ngrok-error-code");
+    if (ngrokError) {
+      return NextResponse.json(
+        {
+          message: `Backend đang offline (ngrok ${ngrokError}). Hãy bật lại backend/ngrok hoặc cập nhật NEXT_PUBLIC_SAAS_API_BASE_URL trong .env.`,
+        },
+        { status: 502 }
+      );
+    }
+
     const responseHeaders: Record<string, string> = {
       "Content-Type": backendRes.headers.get("content-type") || "application/json",
       "Access-Control-Allow-Origin": "*",

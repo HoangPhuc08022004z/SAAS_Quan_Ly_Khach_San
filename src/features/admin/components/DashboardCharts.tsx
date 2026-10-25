@@ -1,10 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { formatMoney } from "@/lib/utils/money";
-import { StatusBadge } from "@/components/data/StatusBadge";
+import { approveSubscription, fetchPendingSubscriptions, rejectSubscription } from "@/lib/api";
+import type { PendingSubscription } from "@/lib/api/types/openapi.interface";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { toast } from "sonner";
 import { ArrowRight, AlertTriangle, Clock } from "lucide-react";
 
 interface DashboardChartsProps {
@@ -85,7 +88,28 @@ export function DashboardCharts({ monthlyRevenue, tenantStats, pendingList }: Da
   );
 }
 
-export function PendingApprovalList({ list }: { list: any[] }) {
+// Dữ liệu thật: GET /api/v1/user/subscriptions/pending + approve/reject ngay trên dashboard
+export function PendingApprovalList() {
+  const { data, loading, error, reload } = useAsyncData(fetchPendingSubscriptions);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const list = data ?? [];
+
+  const handle = async (item: PendingSubscription, action: "approve" | "reject") => {
+    setBusyId(item.subscriptionId);
+    try {
+      const res =
+        action === "approve"
+          ? await approveSubscription(item.subscriptionId)
+          : await rejectSubscription(item.subscriptionId);
+      toast.success(res?.message || (action === "approve" ? "Đã phê duyệt." : "Đã từ chối."));
+      reload();
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể xử lý yêu cầu.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
       <div className="flex items-center justify-between">
@@ -105,22 +129,38 @@ export function PendingApprovalList({ list }: { list: any[] }) {
       </div>
 
       <div className="divide-y divide-slate-100 dark:divide-slate-800">
-        {list.length > 0 ? (
+        {loading ? (
+          <p className="py-4 text-center text-xs text-slate-400">Đang tải...</p>
+        ) : error ? (
+          <p className="py-4 text-center text-xs text-rose-500">{error}</p>
+        ) : list.length > 0 ? (
           list.slice(0, 5).map((item) => (
-            <div key={item.id} className="py-3 flex items-center justify-between gap-4">
-              <div>
-                <p className="font-semibold text-xs text-slate-800 dark:text-slate-200">
-                  {item.tenant?.name || item.account?.full_name}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  Gói: <span className="font-medium text-slate-600 dark:text-slate-300">{item.plan?.name}</span> • Gửi ngày: {item.created_at.slice(0, 10)}
+            <div key={item.subscriptionId} className="py-3 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">{item.tenantName}</p>
+                <p className="text-[11px] text-slate-400 truncate">
+                  {item.email} • Gói:{" "}
+                  <span className="font-medium text-slate-600 dark:text-slate-300">{item.plan}</span>
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge type="subscription" status={item.status} />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => handle(item, "reject")}
+                  disabled={busyId === item.subscriptionId}
+                  className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg disabled:opacity-50 dark:hover:bg-rose-950/40"
+                >
+                  Từ chối
+                </button>
+                <button
+                  onClick={() => handle(item, "approve")}
+                  disabled={busyId === item.subscriptionId}
+                  className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50"
+                >
+                  Duyệt
+                </button>
                 <Link
-                  href={`/admin/subscriptions/${item.id}`}
-                  className="px-2.5 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg"
+                  href={`/admin/subscriptions/${item.subscriptionId}`}
+                  className="px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg"
                 >
                   Chi tiết
                 </Link>

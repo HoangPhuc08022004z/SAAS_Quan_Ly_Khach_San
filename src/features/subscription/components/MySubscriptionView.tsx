@@ -2,21 +2,20 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/data/StatusBadge";
-import { MoneyText } from "@/components/data/MoneyText";
 import { DateText } from "@/components/data/DateText";
 import { UsageMeter } from "@/components/data/UsageMeter";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { formatBytes } from "@/lib/utils/format";
 import {
-  api,
   earlyRenewalSubscription,
   lateRenewalSubscription,
   resubmitSubscription,
   retryInitialPayment,
-  fetchUserProfile,
 } from "@/lib/api";
+import { durationUnitLabel } from "@/lib/api/adapters";
+import { RENEWAL_BASELINE_KEY } from "./PaymentFlow";
+import type { Plan } from "@/lib/api/types";
+import type { UserProfile } from "@/lib/api/types/openapi.interface";
 import { toast } from "sonner";
 import {
   CreditCard,
@@ -25,68 +24,67 @@ import {
   RefreshCw,
   Bell,
   ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
   Clock,
   RotateCcw,
-  Send,
 } from "lucide-react";
 
 export function MySubscriptionView({
-  initialSubscription,
-  initialUsage,
-  initialReminders,
+  profile,
+  plans,
+  usage,
+  reminders,
+  onChanged,
 }: {
-  initialSubscription: any;
-  initialUsage: any;
-  initialReminders: any[];
+  profile: UserProfile;
+  plans: Plan[];
+  usage: any;
+  reminders: any[];
+  onChanged: () => void;
 }) {
-  const router = useRouter();
-  const [sub, setSub] = useState(initialSubscription);
-  const [usage] = useState(initialUsage);
-  const [reminders] = useState(initialReminders);
   const [isRenewing, setIsRenewing] = useState(false);
   const [isRenewDialogOpen, setIsRenewDialogOpen] = useState(false);
+  const [renewPlanId, setRenewPlanId] = useState<string>(plans[0]?.id || "");
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [isRetryingPayment, setIsRetryingPayment] = useState(false);
 
+  const status = profile.subscriptionStatus;
+  const isExpired = status === "EXPIRED";
+  const isPending = status === "PENDING" || status === "PENDING_APPROVAL";
+  const isPendingPayment = status === "PENDING_PAYMENT";
+  const isRejected = status === "REJECTED";
+  const isActive = status === "ACTIVE";
+
   const handleRenew = async () => {
+    if (!renewPlanId) {
+      toast.error("Vui lòng chọn gói để gia hạn.");
+      return;
+    }
     setIsRenewing(true);
     try {
-      const planIdNum = parseInt(
-        String(sub.plan?.id || sub.plan_id || "1").replace(/\D/g, "") || "1",
-        10
-      );
-
-      try {
-        if (sub.status === "EXPIRED") {
-          // Gọi OpenAPI: POST /api/v1/user/subscriptions/late-renewal
-          const res = await lateRenewalSubscription({ planId: planIdNum });
-          if (res?.paymentUrl) {
-            toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
-            window.location.href = res.paymentUrl;
-            return;
+      const planId = Number(renewPlanId);
+      // EXPIRED → POST /subscriptions/late-renewal, ACTIVE → POST /subscriptions/early-renewal
+      const res = isExpired
+        ? await lateRenewalSubscription({ planId })
+        : await earlyRenewalSubscription({ planId });
+      if (res?.paymentUrl) {
+        // Thanh toán sớm: thuê bao vẫn ACTIVE trong lúc trả tiền → lưu ngày hết hạn hiện tại
+        // để trang kết quả nhận biết khi nào kỳ mới được cộng thật sự.
+        try {
+          if (isActive && profile.endDate) {
+            sessionStorage.setItem(RENEWAL_BASELINE_KEY, profile.endDate);
+          } else {
+            sessionStorage.removeItem(RENEWAL_BASELINE_KEY);
           }
-        } else {
-          // Gọi OpenAPI: POST /api/v1/user/subscriptions/early-renewal
-          const res = await earlyRenewalSubscription({ planId: planIdNum });
-          if (res?.paymentUrl) {
-            toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
-            window.location.href = res.paymentUrl;
-            return;
-          }
+        } catch {
+          // sessionStorage không khả dụng → trang kết quả dùng cách kiểm tra mặc định
         }
-      } catch (backendErr) {
-        console.warn("Backend renewal API error, using local fallback:", backendErr);
+        toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+        window.location.href = res.paymentUrl;
+        return;
       }
-
-      const updated = await api.renewMySubscription();
-      setSub((prev: any) => ({ ...prev, end_date: updated.end_date, status: updated.status }));
-      setIsRenewDialogOpen(false);
-      toast.success("Gia hạn thuê bao thành công! Kỳ hạn mới đã được cộng thêm.");
-      router.refresh();
-    } catch {
-      toast.error("Không thể gia hạn thuê bao vào lúc này.");
+      toast.error("Không nhận được đường dẫn thanh toán từ hệ thống.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể tạo phiên thanh toán gia hạn.");
     } finally {
       setIsRenewing(false);
     }
@@ -97,12 +95,8 @@ export function MySubscriptionView({
     try {
       // Gọi OpenAPI: POST /api/v1/user/subscriptions/resubmit
       const res = await resubmitSubscription();
-      setSub((prev: any) => ({
-        ...prev,
-        status: res.subscriptionStatus || "PENDING_APPROVAL",
-      }));
       toast.success(res.message || "Đã gửi lại yêu cầu Subscription để SaaS Admin xét duyệt.");
-      router.refresh();
+      onChanged();
     } catch (err: any) {
       toast.error(err?.message || "Không thể gửi lại yêu cầu.");
     } finally {
@@ -128,11 +122,21 @@ export function MySubscriptionView({
     }
   };
 
-  const isExpired = sub.status === "EXPIRED";
-  const isPending = sub.status === "PENDING" || sub.status === "PENDING_APPROVAL";
-  const isPendingPayment = sub.status === "PENDING_PAYMENT";
-  const isRejected = sub.status === "REJECTED";
-  const isActive = sub.status === "ACTIVE";
+  if (!status) {
+    return (
+      <div className="max-w-xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+        <h3 className="text-base font-bold text-slate-900 dark:text-white">Bạn chưa đăng ký gói dịch vụ nào</h3>
+        <p className="text-xs text-slate-500">Chọn một gói và gửi yêu cầu để SaaS Admin xét duyệt.</p>
+        <Link
+          href="/owner/subscribe"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
+        >
+          <span>Đăng ký gói dịch vụ</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -142,12 +146,12 @@ export function MySubscriptionView({
           <div>
             <div className="flex items-center gap-2.5">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full dark:bg-blue-950 dark:text-blue-400">
-                Gói Hiện Tại
+                Thuê Bao Hiện Tại
               </span>
-              <StatusBadge type="subscription" status={sub.status} />
+              <StatusBadge type="subscription" status={status} />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-1.5">{sub.plan?.name || "Standard Plan"}</h2>
-            <p className="text-xs text-slate-400">{sub.plan?.description}</p>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-1.5">{profile.tenantName || profile.userName}</h2>
+            <p className="text-xs text-slate-400">{profile.email}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -173,7 +177,7 @@ export function MySubscriptionView({
               </button>
             )}
 
-            {isPending && !isPendingPayment && (
+            {isPending && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-xl border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400">
                 <Clock className="w-3.5 h-3.5" />
                 <span>Chờ SaaS Admin duyệt</span>
@@ -186,7 +190,7 @@ export function MySubscriptionView({
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Gia hạn thuê bao</span>
+                <span>{isExpired ? "Gia hạn thuê bao" : "Thanh toán sớm kỳ tiếp theo"}</span>
               </button>
             )}
 
@@ -204,12 +208,10 @@ export function MySubscriptionView({
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-1">
             <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
               <CreditCard className="w-3.5 h-3.5 text-blue-500" />
-              Giá gói thuê bao
+              Chủ tài khoản
             </span>
-            <div className="text-base font-bold text-slate-900 dark:text-white">
-              <MoneyText amount={sub.price || sub.plan?.price || 0} />
-            </div>
-            <span className="text-[11px] text-slate-400">/{sub.plan?.duration_days || 30} ngày</span>
+            <div className="text-base font-bold text-slate-900 dark:text-white">{profile.userName}</div>
+            <span className="text-[11px] text-slate-400">{profile.email}</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-1">
@@ -218,9 +220,9 @@ export function MySubscriptionView({
               Ngày bắt đầu
             </span>
             <div className="text-sm font-bold text-slate-900 dark:text-white">
-              <DateText date={sub.start_date} />
+              {profile.startDate ? <DateText date={profile.startDate} /> : "—"}
             </div>
-            <span className="text-[11px] text-slate-400">Thời điểm kích hoạt</span>
+            <span className="text-[11px] text-slate-400">Chỉ có khi thuê bao đang hoạt động</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-1">
@@ -229,10 +231,10 @@ export function MySubscriptionView({
               Ngày kết thúc kỳ hạn
             </span>
             <div className="text-sm font-bold text-slate-900 dark:text-white">
-              <DateText date={sub.end_date} />
+              {profile.endDate ? <DateText date={profile.endDate} /> : "—"}
             </div>
-            <span className={`text-[11px] font-medium ${isExpired ? "text-rose-500" : "text-emerald-500"}`}>
-              {isExpired ? "Đã hết hạn sử dụng" : "Đang có hiệu lực"}
+            <span className={`text-[11px] font-medium ${isExpired ? "text-rose-500" : isActive ? "text-emerald-500" : "text-slate-400"}`}>
+              {isExpired ? "Đã hết hạn sử dụng" : isActive ? "Đang có hiệu lực" : "Chưa kích hoạt"}
             </span>
           </div>
         </div>
@@ -316,15 +318,46 @@ export function MySubscriptionView({
         )}
       </div>
 
-      <ConfirmDialog
-        isOpen={isRenewDialogOpen}
-        title="Xác nhận gia hạn gói dịch vụ"
-        description={`Bạn có muốn gia hạn gói "${sub.plan?.name}" với mức phí ${sub.price?.toLocaleString()} đ? Kỳ hạn mới sẽ được cộng dồn vào thời gian hết hạn hiện tại.`}
-        confirmText="Xác nhận gia hạn"
-        isLoading={isRenewing}
-        onConfirm={handleRenew}
-        onClose={() => setIsRenewDialogOpen(false)}
-      />
+      {isRenewDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {isExpired ? "Gia hạn muộn (thuê bao đã hết hạn)" : "Thanh toán sớm cho kỳ kế tiếp"}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {isExpired
+                ? "Kỳ mới bắt đầu tính từ ngày thanh toán thành công."
+                : `Kỳ mới bắt đầu ngay sau ngày kết thúc hiện tại${profile.endDate ? ` (${profile.endDate})` : ""}. Bạn có thể chọn gói khác cho kỳ kế tiếp.`}
+            </p>
+            <select
+              value={renewPlanId}
+              onChange={(e) => setRenewPlanId(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
+            >
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} — {p.price.toLocaleString("vi-VN")} đ / {p.duration} {durationUnitLabel(p.duration_unit)}
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsRenewDialogOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl dark:bg-slate-800 dark:text-slate-300"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleRenew}
+                disabled={isRenewing}
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl"
+              >
+                {isRenewing ? "Đang xử lý..." : "Tiếp tục thanh toán Stripe"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,34 +4,21 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plan } from "@/lib/api/types";
-import { api } from "@/lib/api";
 import { DataTable, Column } from "@/components/data/DataTable";
 import { StatusBadge } from "@/components/data/StatusBadge";
 import { MoneyText } from "@/components/data/MoneyText";
 import { formatBytes } from "@/lib/utils/format";
-import { toast } from "sonner";
-import { Plus, Edit, Power, Building2, Bed, Users, HardDrive } from "lucide-react";
+import { Plus, Edit, Building2, Bed, Users, HardDrive } from "lucide-react";
 
 export function PlanTable({ initialPlans }: { initialPlans: Plan[] }) {
   const router = useRouter();
-  const [plans, setPlans] = useState<Plan[]>(initialPlans);
+  const [plans] = useState<Plan[]>(initialPlans);
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   const filteredPlans = plans.filter((p) => {
     if (statusFilter !== "ALL" && p.status !== statusFilter) return false;
     return true;
   });
-
-  const toggleStatus = async (plan: Plan) => {
-    const nextStatus = plan.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    try {
-      const updated = await api.adminSetPlanStatus(plan.id, nextStatus);
-      setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      toast.success(`Đã đổi trạng thái gói sang ${nextStatus === "ACTIVE" ? "Hoạt động" : "Tạm ngưng"}`);
-    } catch {
-      toast.error("Không thể thay đổi trạng thái gói.");
-    }
-  };
 
   const columns: Column<Plan>[] = [
     {
@@ -105,14 +92,6 @@ export function PlanTable({ initialPlans }: { initialPlans: Plan[] }) {
           >
             <Edit className="w-3.5 h-3.5" />
           </Link>
-          <button
-            type="button"
-            onClick={() => toggleStatus(p)}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-300"
-            title={p.status === "ACTIVE" ? "Tạm ngưng cung cấp" : "Kích hoạt cung cấp"}
-          >
-            <Power className="w-3.5 h-3.5" />
-          </button>
         </div>
       ),
     },

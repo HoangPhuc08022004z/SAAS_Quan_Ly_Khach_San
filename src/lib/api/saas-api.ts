@@ -103,7 +103,9 @@ class SaasApiClient implements ISaasOpenApiService {
    */
   public async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    // Khôi phục dữ liệu khi backend trả JSON hỏng (xem salvageJsonObjects)
+    salvage?: (raw: string) => T
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
     const headers: Record<string, string> = {
@@ -163,7 +165,17 @@ class SaasApiClient implements ISaasOpenApiService {
 
       // Handle Successful Response
       if (contentType.includes("application/json")) {
-        return (await response.json()) as T;
+        const raw = await response.text();
+        if (!raw) return undefined as unknown as T;
+        try {
+          return JSON.parse(raw) as T;
+        } catch (parseErr) {
+          if (salvage) {
+            const recovered = salvage(raw);
+            if (recovered !== undefined) return recovered;
+          }
+          throw parseErr;
+        }
       } else {
         return (await response.text()) as unknown as T;
       }
@@ -218,18 +230,51 @@ class SaasApiClient implements ISaasOpenApiService {
    * [PUBLIC] GET /api/v1/saas/user/Plan/List
    */
   public async listPlans(): Promise<SubscriptionPlan[]> {
-    return this.request<SubscriptionPlan[]>("/api/v1/saas/user/Plan/List", {
-      method: "GET",
-    });
+    let salvaged = false;
+    const plans = await this.request<SubscriptionPlan[]>(
+      "/api/v1/saas/user/Plan/List",
+      { method: "GET" },
+      (raw) => {
+        salvaged = true;
+        return salvageJsonObjects(raw, 2, "subscriptions") as unknown as SubscriptionPlan[];
+      }
+    );
+    if (!salvaged) return plans;
+
+    // JSON bị cắt dở do vòng tham chiếu → các Plan phía sau bị mất.
+    // Bù bằng Plan/Detail theo id tăng dần cho đến khi gặp 2 id liên tiếp không tồn tại.
+    const result = [...plans];
+    const seen = new Set(result.map((p) => p.planId));
+    let misses = 0;
+    for (let id = 1; id <= 100 && misses < 2; id++) {
+      if (seen.has(id)) {
+        misses = 0;
+        continue;
+      }
+      try {
+        const detail = await this.getPlanDetail(id);
+        if (detail && typeof detail === "object" && detail.planId) {
+          result.push(detail);
+          misses = 0;
+          continue;
+        }
+      } catch {
+        // coi như không tồn tại
+      }
+      misses++;
+    }
+    return result.sort((a, b) => a.planId - b.planId);
   }
 
   /**
    * [PUBLIC] GET /api/v1/saas/user/Plan/Detail?id={id}
    */
   public async getPlanDetail(id: number): Promise<SubscriptionPlan> {
-    return this.request<SubscriptionPlan>(`/api/v1/saas/user/Plan/Detail?id=${id}`, {
-      method: "GET",
-    });
+    return this.request<SubscriptionPlan>(
+      `/api/v1/saas/user/Plan/Detail?id=${id}`,
+      { method: "GET" },
+      (raw) => salvageJsonObjects(raw, 1, "subscriptions")?.[0] as unknown as SubscriptionPlan
+    );
   }
 
   /**
@@ -391,12 +436,44 @@ class SaasApiClient implements ISaasOpenApiService {
    * [OWNER] GET /api/v1/chat/saas?question={question}
    */
   public async chatSaas(question: string): Promise<string> {
-    return this.request<string>(
-      `/api/v1/chat/saas?question=${encodeURIComponent(question)}`,
-      {
-        method: "GET",
-      }
+    // Không dùng request(): câu trả lời là văn bản tự do nên không được phép phụ thuộc vào Content-Type
+    // (backend có thể gắn nhãn JSON cho chuỗi thuần). Đọc text rồi tự suy ra nội dung câu trả lời.
+    const headers: Record<string, string> = {
+      Accept: "text/plain, application/json, */*",
+      "ngrok-skip-browser-warning": "true",
+    };
+    const token = this.getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/chat/saas?question=${encodeURIComponent(question)}`,
+      { method: "GET", headers }
     );
+    const raw = await response.text();
+
+    if (!response.ok) {
+      let message = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        message = parsed?.message || parsed?.error || raw;
+      } catch {
+        // thân phản hồi không phải JSON
+      }
+      throw new Error(`HTTP ${response.status}: ${message || response.statusText}`);
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === "string") return parsed;
+      if (parsed && typeof parsed === "object") {
+        const obj = parsed as Record<string, unknown>;
+        const text = obj.answer ?? obj.message ?? obj.content ?? obj.response;
+        if (typeof text === "string") return text;
+      }
+    } catch {
+      // chuỗi thuần → dùng nguyên văn
+    }
+    return raw;
   }
 
   // ==========================================================================
@@ -649,4 +726,70 @@ export function toOpenApiPlanCreateRequest(
     maxRooms: Number(plan.maxRooms ?? plan.max_rooms ?? 20),
     maxStorage: Number(plan.maxStorage ?? plan.max_storage ?? 2147483648),
   };
+}
+
+/**
+ * Backend trả thẳng Entity nên Plan <-> Subscription tham chiếu vòng tròn (Plan.subscriptions[].plan.subscriptions...).
+ * Jackson lặp đến khi StackOverflow nên JSON bị cắt dở và dính thêm đoạn lỗi → JSON.parse thất bại.
+ * Hàm này giữ lại các field của từng Plan trước khóa `cycleKey` rồi bỏ phần lồng nhau.
+ * (Cách sửa đúng là backend dùng DTO hoặc @JsonIgnore/@JsonManagedReference.)
+ *
+ * @param depthOfItem độ sâu của object cần giữ: 2 = phần tử của mảng gốc, 1 = object gốc
+ */
+export function salvageJsonObjects(
+  raw: string,
+  depthOfItem: number,
+  cycleKey: string
+): Record<string, unknown>[] | undefined {
+  const items: Record<string, unknown>[] = [];
+  let depth = 0;
+  let start = -1;
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw[i];
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== '"') j += raw[j] === "\\" ? 2 : 1;
+      const isKey = raw.slice(j + 1).trimStart().startsWith(":");
+      if (isKey && depth === depthOfItem && start >= 0 && raw.slice(i + 1, j) === cycleKey) {
+        const body = raw.slice(start, i).trimEnd().replace(/,$/, "");
+        try {
+          items.push(JSON.parse(`${body}}`));
+        } catch {
+          // bỏ qua phần tử không khôi phục được
+        }
+        start = -1;
+      }
+      i = j + 1;
+      continue;
+    }
+    if (ch === "{" || ch === "[") {
+      depth++;
+      if (ch === "{" && depth === depthOfItem) start = i;
+    } else if (ch === "}" || ch === "]") {
+      depth--;
+    }
+    i++;
+  }
+  return items.length ? items : undefined;
+}
+
+/**
+ * Backend không đưa role vào JWT và không có endpoint "tôi là ai".
+ * Suy ra role bằng cách thử endpoint theo quyền: /user/profile (OWNER) rồi /pending (ADMIN).
+ */
+export async function resolveAccountRole(): Promise<
+  { role: "OWNER"; profile: UserProfile } | { role: "ADMIN" }
+> {
+  try {
+    return { role: "OWNER", profile: await saasApi.profile.get() };
+  } catch {
+    // không phải Owner → thử Admin
+  }
+  try {
+    await saasApi.subscriptions.listPending();
+    return { role: "ADMIN" };
+  } catch {
+    throw new Error("Không xác định được quyền của tài khoản. Vui lòng thử lại.");
+  }
 }
