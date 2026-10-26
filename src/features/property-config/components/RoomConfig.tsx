@@ -5,7 +5,8 @@ import Link from "next/link";
 import { DataTable, Column } from "@/components/data/DataTable";
 import { StatusBadge } from "@/components/data/StatusBadge";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { api } from "@/lib/api";
+import { roomApi, type ApiRoom, type RoomItemInput } from "@/lib/api";
+import { toUiRoom } from "@/lib/api/adapters";
 import { toast } from "sonner";
 import {
   DoorOpen,
@@ -21,14 +22,36 @@ import {
   Sparkles,
 } from "lucide-react";
 
+const toInput = (r: ApiRoom): RoomItemInput => ({
+  roomId: r.roomId,
+  roomNumber: r.roomNumber,
+  floor: r.floor,
+  status: r.status,
+  description: r.description ?? undefined,
+  isAvailable: r.isAvailable,
+  roomTypeId: r.roomTypeId,
+});
+
 export function RoomConfig({
+  propertyId,
   roomType,
-  initialRooms,
+  initialAllRooms,
 }: {
+  propertyId: string;
   roomType: any;
-  initialRooms: any[];
+  initialAllRooms: ApiRoom[];
 }) {
-  const [rooms, setRooms] = useState<any[]>(initialRooms);
+  // Backend lưu cả danh sách phòng của property trong một request → giữ toàn bộ phòng, chỉ hiển thị phòng của loại này
+  const [allRooms, setAllRooms] = useState<ApiRoom[]>(initialAllRooms);
+  const typeId = Number(roomType.id);
+  const rooms = allRooms.filter((r) => r.roomTypeId === typeId).map(toUiRoom);
+
+  // PUT /api/properties/{propertyId}/rooms/configuration rồi tải lại danh sách
+  const saveAll = async (items: RoomItemInput[]) => {
+    const result = await roomApi.configure(propertyId, items);
+    setAllRooms((await roomApi.configuration(propertyId)).rooms);
+    return result;
+  };
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<any | null>(null);
@@ -51,24 +74,34 @@ export function RoomConfig({
 
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roomNumber.trim()) {
+    const number = roomNumber.trim();
+    if (!number) {
       toast.error("Vui lòng nhập số phòng.");
+      return;
+    }
+    if (allRooms.some((r) => r.roomNumber === number)) {
+      toast.error(`Số phòng ${number} đã tồn tại trong khách sạn.`);
       return;
     }
     setIsSaving(true);
     try {
-      const created = await api.createRoom(roomType.id, {
-        room_number: roomNumber.trim(),
-        floor: Number(floor),
-        description: description.trim(),
-      });
-      setRooms((prev) => [...prev, created]);
+      await saveAll([
+        ...allRooms.map(toInput),
+        {
+          roomNumber: number,
+          floor: Number(floor),
+          status: "READY",
+          description: description.trim() || undefined,
+          isAvailable: true,
+          roomTypeId: typeId,
+        },
+      ]);
       setIsAddOpen(false);
       setRoomNumber("");
       setDescription("");
-      toast.success(`Đã thêm phòng ${created.room_number} thành công!`);
-    } catch {
-      toast.error("Không thể thêm phòng mới.");
+      toast.success(`Đã thêm phòng ${number} thành công!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể thêm phòng mới.");
     } finally {
       setIsSaving(false);
     }
@@ -80,19 +113,30 @@ export function RoomConfig({
       toast.error("Phòng kết thúc phải lớn hơn hoặc bằng phòng bắt đầu.");
       return;
     }
+    const existing = new Set(allRooms.map((r) => r.roomNumber));
+    const created: RoomItemInput[] = [];
+    for (let n = Number(startRoom); n <= Number(endRoom); n++) {
+      const number = `${prefix.trim()}${n}`;
+      if (existing.has(number)) continue; // bỏ qua số phòng đã có
+      created.push({
+        roomNumber: number,
+        floor: Number(bulkFloor),
+        status: "READY",
+        isAvailable: true,
+        roomTypeId: typeId,
+      });
+    }
+    if (created.length === 0) {
+      toast.error("Tất cả số phòng trong dải này đã tồn tại.");
+      return;
+    }
     setIsSaving(true);
     try {
-      const created = await api.bulkCreateRooms(roomType.id, {
-        floor: Number(bulkFloor),
-        startRoom: Number(startRoom),
-        endRoom: Number(endRoom),
-        prefix: prefix.trim() || undefined,
-      });
-      setRooms((prev) => [...prev, ...created]);
+      await saveAll([...allRooms.map(toInput), ...created]);
       setIsBulkOpen(false);
       toast.success(`Đã tạo hàng loạt ${created.length} phòng mới!`);
-    } catch {
-      toast.error("Không thể tạo hàng loạt phòng.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể tạo hàng loạt phòng.");
     } finally {
       setIsSaving(false);
     }
@@ -101,12 +145,12 @@ export function RoomConfig({
   const handleDelete = async () => {
     if (!roomToDelete) return;
     try {
-      await api.deleteRoom(roomToDelete.id);
-      setRooms((prev) => prev.filter((r) => r.id !== roomToDelete.id));
+      // Phòng không có trong danh sách gửi lên sẽ bị backend xóa
+      await saveAll(allRooms.filter((r) => String(r.roomId) !== roomToDelete.id).map(toInput));
       toast.success("Đã xóa phòng thành công.");
       setRoomToDelete(null);
-    } catch {
-      toast.error("Không thể xóa phòng này.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể xóa phòng này.");
     }
   };
 

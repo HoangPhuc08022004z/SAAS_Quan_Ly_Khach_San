@@ -1,32 +1,28 @@
+"use client";
+
 // FR: FR-C01, FR-C13
-// Service: api.getProperty, api.updateProperty, api.deleteProperty, api.uploadPropertyImage
-import React from "react";
-import { notFound } from "next/navigation";
+// API: GET /api/properties/{id}, PUT /api/properties/{id}, DELETE /api/properties/{id}
+import React, { use } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { PropertyForm } from "@/features/property-config/components/PropertyForm";
-import { api } from "@/lib/api";
+import { propertyApi } from "@/lib/api";
+import { toUiProperty } from "@/lib/api/adapters";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 
-export const dynamic = "force-dynamic";
-
-export default async function EditPropertyPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const property = await api.getProperty(id);
-
-  if (!property) {
-    notFound();
-  }
+export default function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => toUiProperty(await propertyApi.get(id)));
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Chỉnh Sửa Thông Tin: ${property.name}`}
+        title={data ? `Chỉnh Sửa Thông Tin: ${data.name}` : "Chỉnh Sửa Thông Tin Khách Sạn"}
         description="Cập nhật địa chỉ, thông tin hotline, email liên hệ và ảnh bìa khách sạn."
       />
-      <PropertyForm initialData={property} isEdit={true} />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <PropertyForm initialData={data} isEdit={true} />}
+      </AsyncBoundary>
     </div>
   );
 }

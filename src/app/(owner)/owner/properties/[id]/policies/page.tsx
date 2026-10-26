@@ -1,30 +1,26 @@
+"use client";
+
 // FR: FR-C02, FR-C13
-// Service: api.listPolicyFormulas, api.listPropertyPolicies, api.applyPolicy, api.removePolicy, api.simulatePolicy
-import React from "react";
+// API: GET /api/policy-formulas, GET/POST /api/properties/{id}/hotel-policies
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { PolicyConfig } from "@/features/property-config/components/PolicyConfig";
-import { api } from "@/lib/api";
+import { propertyApi, policyApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyPoliciesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, formulas, applied] = await Promise.all([
-    api.getProperty(id),
-    api.listPolicyFormulas(),
-    api.listPropertyPolicies(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyPoliciesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, formulas, applied] = await Promise.all([
+      propertyApi.get(id),
+      policyApi.formulas(),
+      policyApi.get(id),
+    ]);
+    return { property, formulas, applied: applied.policies };
+  });
 
   return (
     <div className="space-y-6">
@@ -39,15 +35,13 @@ export default async function PropertyPoliciesPage({
       </div>
 
       <PageHeader
-        title={`Chính Sách & Quy Định: ${property.name}`}
+        title={`Chính Sách & Quy Định: ${data?.property.name ?? ""}`}
         description="Cấu hình các công thức hủy phòng, đặt cọc và quy tắc xử lý vắng mặt (No-Show) tự động."
       />
 
-      <PolicyConfig
-        propertyId={id}
-        initialFormulas={formulas}
-        initialApplied={applied}
-      />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <PolicyConfig propertyId={id} formulas={data.formulas} initialApplied={data.applied} />}
+      </AsyncBoundary>
     </div>
   );
 }

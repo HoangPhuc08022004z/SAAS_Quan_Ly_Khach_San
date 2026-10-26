@@ -1,30 +1,26 @@
+"use client";
+
 // FR: FR-C08, FR-C09, FR-C13
-// Service: api.listServiceCatalog, api.listPropertyServices, api.createPropertyService, api.updatePropertyService, api.deletePropertyService
-import React from "react";
+// API: GET /api/services/catalog, GET/POST /api/properties/{id}/services, PATCH .../{propertyServiceId}/status
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { ServiceConfig } from "@/features/property-config/components/ServiceConfig";
-import { api } from "@/lib/api";
+import { propertyApi, serviceApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyServicesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, catalog, services] = await Promise.all([
-    api.getProperty(id),
-    api.listServiceCatalog(),
-    api.listPropertyServices(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyServicesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, catalog, services] = await Promise.all([
+      propertyApi.get(id),
+      serviceApi.catalog(),
+      serviceApi.list(id),
+    ]);
+    return { property, catalog, services };
+  });
 
   return (
     <div className="space-y-6">
@@ -39,15 +35,13 @@ export default async function PropertyServicesPage({
       </div>
 
       <PageHeader
-        title={`Dịch Vụ Khách Sạn: ${property.name}`}
-        description="Lựa chọn các tiện ích từ danh mục chuẩn SaaS và điều chỉnh biểu phí phục vụ tại cơ sở."
+        title={`Dịch Vụ Khách Sạn: ${data?.property.name ?? ""}`}
+        description="Lựa chọn các tiện ích từ danh mục chuẩn SaaS và bật/tắt dịch vụ tại cơ sở."
       />
 
-      <ServiceConfig
-        propertyId={id}
-        catalog={catalog}
-        initialServices={services}
-      />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <ServiceConfig propertyId={id} catalog={data.catalog} initialServices={data.services} />}
+      </AsyncBoundary>
     </div>
   );
 }

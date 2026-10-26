@@ -5,13 +5,14 @@ import { DataTable, Column } from "@/components/data/DataTable";
 import { MoneyText } from "@/components/data/MoneyText";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { calculateSellingPrice } from "@/rules/fnbRules";
-import { api } from "@/lib/api";
+import { fnbApi } from "@/lib/api";
+import { toUiFnb } from "@/lib/api/adapters";
 import { toast } from "sonner";
 import {
   Utensils,
   Plus,
   Edit2,
-  Trash2,
+  Power,
   Calculator,
   X,
   Save,
@@ -27,11 +28,10 @@ export function FnbConfig({
   const [menu, setMenu] = useState<any[]>(initialMenu);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<any | null>(null);
+  const [itemToToggle, setItemToToggle] = useState<any | null>(null);
 
   // Form states
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("DRINK");
   const [maxQuantity, setMaxQuantity] = useState(50);
   const [purchasePrice, setPurchasePrice] = useState(20000);
   const [profitPercent, setProfitPercent] = useState(50);
@@ -42,7 +42,6 @@ export function FnbConfig({
   const openCreateModal = () => {
     setEditingItem(null);
     setName("");
-    setCategory("DRINK");
     setMaxQuantity(50);
     setPurchasePrice(20000);
     setProfitPercent(50);
@@ -52,7 +51,6 @@ export function FnbConfig({
   const openEditModal = (item: any) => {
     setEditingItem(item);
     setName(item.name);
-    setCategory(item.category || "DRINK");
     setMaxQuantity(item.max_quantity || 50);
     setPurchasePrice(item.purchase_price || 0);
     setProfitPercent(item.profit_percent || 0);
@@ -67,42 +65,45 @@ export function FnbConfig({
     }
     setIsSaving(true);
     try {
-      const payload = {
+      const fields = {
         name: name.trim(),
-        category,
-        max_quantity: Number(maxQuantity),
-        actual_quantity: 0,
-        purchase_price: Number(purchasePrice),
-        profit_percent: Number(profitPercent),
-        status: "ACTIVE" as const,
+        maxQuantity: Number(maxQuantity),
+        purchasePrice: Number(purchasePrice),
+        sellingPricePercent: Number(profitPercent),
       };
 
       if (editingItem) {
-        const updated = await api.updateFnbItem(editingItem.id, payload);
+        // Gọi OpenAPI: PATCH /api/properties/{propertyId}/fnb-menu/{menuId}
+        const updated = toUiFnb(await fnbApi.update(propertyId, editingItem.id, fields));
         setMenu((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
         toast.success("Đã cập nhật món F&B thành công!");
       } else {
-        const created = await api.createFnbItem(propertyId, payload);
+        // Gọi OpenAPI: POST /api/properties/{propertyId}/fnb-menu
+        const created = toUiFnb(await fnbApi.create(propertyId, { ...fields, actualQuantity: 0 }));
         setMenu((prev) => [...prev, created]);
         toast.success("Đã thêm món F&B mới thành công!");
       }
       setIsModalOpen(false);
-    } catch {
-      toast.error("Không thể lưu thông tin món F&B.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể lưu thông tin món F&B.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!itemToDelete) return;
+  // Backend không có API xóa món → đổi trạng thái ACTIVE/INACTIVE
+  const handleToggleStatus = async () => {
+    if (!itemToToggle) return;
+    const next = itemToToggle.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     try {
-      await api.deleteFnbItem(itemToDelete.id);
-      setMenu((prev) => prev.filter((m) => m.id !== itemToDelete.id));
-      toast.success("Đã xóa món F&B thành công.");
-      setItemToDelete(null);
-    } catch {
-      toast.error("Không thể xóa món này.");
+      // Gọi OpenAPI: PATCH /api/properties/{propertyId}/fnb-menu/{menuId}/status
+      const updated = toUiFnb(await fnbApi.setStatus(propertyId, itemToToggle.id, next));
+      setMenu((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      toast.success(next === "ACTIVE" ? "Đã bật lại món." : "Đã tạm ngưng món.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể đổi trạng thái món.");
+    } finally {
+      setItemToToggle(null);
     }
   };
 
@@ -114,7 +115,7 @@ export function FnbConfig({
       render: (m) => (
         <div>
           <div className="font-bold text-xs text-slate-900 dark:text-white">{m.name}</div>
-          <span className="text-[10px] font-semibold text-slate-400 uppercase">{m.category || "DRINK"}</span>
+          <span className={`text-[10px] font-bold uppercase ${m.status === "ACTIVE" ? "text-emerald-600" : "text-slate-400"}`}>{m.status === "ACTIVE" ? "Đang bán" : "Tạm ngưng"}</span>
         </div>
       ),
     },
@@ -162,10 +163,11 @@ export function FnbConfig({
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => setItemToDelete(m)}
+            onClick={() => setItemToToggle(m)}
+            title={m.status === "ACTIVE" ? "Tạm ngưng món" : "Bật lại món"}
             className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Power className="w-3.5 h-3.5" />
           </button>
         </div>
       ),
@@ -224,20 +226,7 @@ export function FnbConfig({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Phân loại</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
-                  >
-                    <option value="DRINK">Đồ uống (Drink)</option>
-                    <option value="FOOD">Món ăn (Food)</option>
-                    <option value="SNACK">Đồ ăn vặt (Snack)</option>
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-bold text-slate-700 dark:text-slate-300">
                     Định mức ngày (Max Qty)
@@ -320,13 +309,16 @@ export function FnbConfig({
       )}
 
       <ConfirmDialog
-        isOpen={!!itemToDelete}
-        title="Xác nhận xóa món ăn"
-        description={`Bạn có chắc muốn xóa món "${itemToDelete?.name}" khỏi thực đơn F&B?`}
-        confirmText="Xóa món"
-        variant="destructive"
-        onConfirm={handleDelete}
-        onClose={() => setItemToDelete(null)}
+        isOpen={!!itemToToggle}
+        title={itemToToggle?.status === "ACTIVE" ? "Tạm ngưng món ăn" : "Bật lại món ăn"}
+        description={
+          itemToToggle?.status === "ACTIVE"
+            ? `Món "${itemToToggle?.name}" sẽ không còn xuất hiện khi gọi món. Bạn có thể bật lại bất cứ lúc nào.`
+            : `Món "${itemToToggle?.name}" sẽ được bán trở lại.`
+        }
+        confirmText="Xác nhận"
+        onConfirm={handleToggleStatus}
+        onClose={() => setItemToToggle(null)}
       />
     </div>
   );

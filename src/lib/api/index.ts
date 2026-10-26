@@ -9,3 +9,4 @@ export const api: IApiService = DATA_SOURCE === "http" ? mockService : mockServi
 export { saasApi } from "./saas-api";
 export * from "./saas-api";
 export * from "./types/openapi.interface";
+export * from "./property-api";

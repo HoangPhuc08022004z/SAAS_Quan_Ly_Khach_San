@@ -1,29 +1,22 @@
+"use client";
+
 // FR: FR-C03
-// Service: api.getCheckTimes, api.updateCheckTimes
-import React from "react";
+// Tên khách sạn: API thật GET /api/properties/{id}. Giờ nhận/trả phòng: backend chưa có API → vẫn dùng mock.
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { CheckTimeForm } from "@/features/property-config/components/CheckTimeForm";
-import { api } from "@/lib/api";
+import { api, propertyApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyCheckTimesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, times] = await Promise.all([
-    api.getProperty(id),
-    api.getCheckTimes(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyCheckTimesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, times] = await Promise.all([propertyApi.get(id), api.getCheckTimes(id)]);
+    return { property, times };
+  });
 
   return (
     <div className="space-y-6">
@@ -38,11 +31,13 @@ export default async function PropertyCheckTimesPage({
       </div>
 
       <PageHeader
-        title={`Giờ Nhận / Trả Phòng: ${property.name}`}
+        title={`Giờ Nhận / Trả Phòng: ${data?.property.name ?? ""}`}
         description="Quy định mốc thời gian nhận phòng và trả phòng tiêu chuẩn hàng ngày cho khách lưu trú."
       />
 
-      <CheckTimeForm propertyId={id} initialTimes={times} />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <CheckTimeForm propertyId={id} initialTimes={data.times} />}
+      </AsyncBoundary>
     </div>
   );
 }

@@ -1,29 +1,23 @@
+"use client";
+
 // FR: FR-C05, FR-C13
-// Service: api.listRoomTypes, api.createRoomType, api.updateRoomType, api.deleteRoomType, api.setRoomTypeStatus
-import React from "react";
+// API: GET/POST /api/properties/{id}/room-types, PUT/DELETE .../room-types/{roomTypeId}
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { RoomTypeConfig } from "@/features/property-config/components/RoomTypeConfig";
-import { api } from "@/lib/api";
+import { propertyApi, roomTypeApi } from "@/lib/api";
+import { toUiRoomType } from "@/lib/api/adapters";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyRoomTypesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, roomTypes] = await Promise.all([
-    api.getProperty(id),
-    api.listRoomTypes(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyRoomTypesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, roomTypes] = await Promise.all([propertyApi.get(id), roomTypeApi.list(id)]);
+    return { property, roomTypes: roomTypes.map((rt) => toUiRoomType(rt, id)) };
+  });
 
   return (
     <div className="space-y-6">
@@ -38,11 +32,13 @@ export default async function PropertyRoomTypesPage({
       </div>
 
       <PageHeader
-        title={`Quản Lý Loại Phòng: ${property.name}`}
+        title={`Quản Lý Loại Phòng: ${data?.property.name ?? ""}`}
         description="Định nghĩa các tiêu chuẩn loại phòng, chỉ tiêu số phòng và cấu hình tiện nghi phục vụ khách."
       />
 
-      <RoomTypeConfig propertyId={id} initialRoomTypes={roomTypes} />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <RoomTypeConfig propertyId={id} initialRoomTypes={data.roomTypes} />}
+      </AsyncBoundary>
     </div>
   );
 }

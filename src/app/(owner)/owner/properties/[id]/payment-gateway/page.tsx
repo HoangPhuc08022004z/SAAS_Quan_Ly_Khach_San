@@ -1,30 +1,26 @@
+"use client";
+
 // FR: FR-C12, FR-C13
-// Service: api.listGateways, api.getGatewayConfig, api.saveGatewayConfig, api.deleteGatewayConfig, api.testGatewayConfig
-import React from "react";
+// Tên khách sạn: API thật GET /api/properties/{id}. Cổng thanh toán: backend chưa có API → vẫn dùng mock.
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { GatewayConfig } from "@/features/property-config/components/GatewayConfig";
-import { api } from "@/lib/api";
+import { api, propertyApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyPaymentGatewayPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, gateways, config] = await Promise.all([
-    api.getProperty(id),
-    api.listGateways(),
-    api.getGatewayConfig(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyPaymentGatewayPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, gateways, config] = await Promise.all([
+      propertyApi.get(id),
+      api.listGateways(),
+      api.getGatewayConfig(id),
+    ]);
+    return { property, gateways, config };
+  });
 
   return (
     <div className="space-y-6">
@@ -39,15 +35,13 @@ export default async function PropertyPaymentGatewayPage({
       </div>
 
       <PageHeader
-        title={`Cấu Hình Cổng Thanh Toán: ${property.name}`}
+        title={`Cấu Hình Cổng Thanh Toán: ${data?.property.name ?? ""}`}
         description="Kết nối đối tác cổng thanh toán trực tuyến (MoMo, VNPAY, ZaloPay) để tự động thu cọc và quyết toán."
       />
 
-      <GatewayConfig
-        propertyId={id}
-        gateways={gateways}
-        initialConfig={config}
-      />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <GatewayConfig propertyId={id} gateways={data.gateways} initialConfig={data.config} />}
+      </AsyncBoundary>
     </div>
   );
 }

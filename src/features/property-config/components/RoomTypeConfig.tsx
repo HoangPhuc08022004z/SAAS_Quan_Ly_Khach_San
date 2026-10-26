@@ -5,7 +5,8 @@ import Link from "next/link";
 import { DataTable, Column } from "@/components/data/DataTable";
 import { TagInput } from "@/components/forms/TagInput";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { api } from "@/lib/api";
+import { roomTypeApi, ROOM_TYPE_NAMES, type RoomTypeName } from "@/lib/api";
+import { toUiRoomType } from "@/lib/api/adapters";
 import { toast } from "sonner";
 import {
   DoorOpen,
@@ -34,7 +35,7 @@ export function RoomTypeConfig({
   const [typeToDelete, setTypeToDelete] = useState<any | null>(null);
 
   // Form states
-  const [name, setName] = useState("");
+  const [name, setName] = useState<RoomTypeName>("STANDARD");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState(2);
   const [bedType, setBedType] = useState("1 Giường King");
@@ -42,12 +43,11 @@ export function RoomTypeConfig({
   const [numberOfRooms, setNumberOfRooms] = useState(5);
   const [amenities, setAmenities] = useState<string[]>(["Wifi tốc độ cao", "Điều hòa hai chiều"]);
   const [imageUrl, setImageUrl] = useState("https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800");
-  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [isSaving, setIsSaving] = useState(false);
 
   const openCreateModal = () => {
     setEditingType(null);
-    setName("");
+    setName("STANDARD");
     setDescription("");
     setCapacity(2);
     setBedType("1 Giường King");
@@ -55,13 +55,12 @@ export function RoomTypeConfig({
     setNumberOfRooms(5);
     setAmenities(["Wifi", "Điều hòa", "Minibar"]);
     setImageUrl("https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800");
-    setStatus("ACTIVE");
     setIsModalOpen(true);
   };
 
   const openEditModal = (rt: any) => {
     setEditingType(rt);
-    setName(rt.name);
+    setName(rt.name as RoomTypeName);
     setDescription(rt.description || "");
     setCapacity(rt.capacity || 2);
     setBedType(rt.bed_type || "1 Giường King");
@@ -69,69 +68,53 @@ export function RoomTypeConfig({
     setNumberOfRooms(rt.number_of_rooms || 5);
     setAmenities(Array.isArray(rt.amenities) ? rt.amenities : ["Wifi"]);
     setImageUrl(rt.image_url || "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800");
-    setStatus(rt.status || "ACTIVE");
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Tên loại phòng không được để trống.");
-      return;
-    }
     setIsSaving(true);
     try {
       const payload = {
-        name: name.trim(),
+        name,
         description: description.trim(),
         capacity: Number(capacity),
-        bed_type: bedType,
-        num_beds: Number(numBeds),
-        number_of_rooms: Number(numberOfRooms),
+        bedType: bedType.trim(),
+        numberOfBeds: Number(numBeds),
+        numberOfRooms: Number(numberOfRooms),
         amenities,
-        image_url: imageUrl,
-        status,
+        image: imageUrl,
       };
 
       if (editingType) {
-        const updated = await api.updateRoomType(editingType.id, payload);
+        // Gọi OpenAPI: PUT /api/properties/{propertyId}/room-types/{roomTypeId}
+        const updated = toUiRoomType(await roomTypeApi.update(propertyId, editingType.id, payload), propertyId);
         setRoomTypes((prev) => prev.map((rt) => (rt.id === updated.id ? updated : rt)));
         toast.success("Đã cập nhật loại phòng thành công!");
       } else {
-        const created = await api.createRoomType(propertyId, payload);
+        // Gọi OpenAPI: POST /api/properties/{propertyId}/room-types
+        const created = toUiRoomType(await roomTypeApi.create(propertyId, payload), propertyId);
         setRoomTypes((prev) => [...prev, created]);
         toast.success("Đã tạo mới loại phòng thành công!");
       }
       setIsModalOpen(false);
-    } catch {
-      toast.error("Không thể lưu thông tin loại phòng.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể lưu thông tin loại phòng.");
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleToggleStatus = async (rt: any) => {
-    const nextStatus = rt.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    try {
-      await api.setRoomTypeStatus(rt.id, nextStatus);
-      setRoomTypes((prev) =>
-        prev.map((item) => (item.id === rt.id ? { ...item, status: nextStatus } : item))
-      );
-      toast.success(`Đã đổi trạng thái sang: ${nextStatus === "ACTIVE" ? "Hoạt động" : "Tạm ngưng"}`);
-    } catch {
-      toast.error("Không thể đổi trạng thái loại phòng.");
     }
   };
 
   const handleDelete = async () => {
     if (!typeToDelete) return;
     try {
-      await api.deleteRoomType(typeToDelete.id);
+      // Gọi OpenAPI: DELETE /api/properties/{propertyId}/room-types/{roomTypeId}
+      await roomTypeApi.remove(propertyId, typeToDelete.id);
       setRoomTypes((prev) => prev.filter((rt) => rt.id !== typeToDelete.id));
       toast.success("Đã xóa loại phòng thành công.");
       setTypeToDelete(null);
-    } catch {
-      toast.error("Không thể xóa loại phòng này.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể xóa loại phòng này.");
     }
   };
 
@@ -185,16 +168,15 @@ export function RoomTypeConfig({
       key: "status",
       header: "Trạng thái",
       render: (rt) => (
-        <button
-          onClick={() => handleToggleStatus(rt)}
-          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase transition-all ${
+        <span
+          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
             rt.status === "ACTIVE"
-              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
-              : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
           }`}
         >
           {rt.status === "ACTIVE" ? "Hoạt động" : "Tạm ngưng"}
-        </button>
+        </span>
       ),
     },
     {
@@ -203,14 +185,14 @@ export function RoomTypeConfig({
       render: (rt) => (
         <div className="flex items-center gap-2">
           <Link
-            href={`/owner/room-types/${rt.id}/rooms`}
+            href={`/owner/room-types/${rt.id}/rooms?propertyId=${propertyId}`}
             className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-bold dark:bg-blue-950 dark:text-blue-400 flex items-center gap-1"
           >
             <span>Phòng</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
           <Link
-            href={`/owner/room-types/${rt.id}/rate`}
+            href={`/owner/room-types/${rt.id}/rate?propertyId=${propertyId}`}
             className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-xs font-bold dark:bg-emerald-950 dark:text-emerald-400 flex items-center gap-1"
           >
             <DollarSign className="w-3 h-3" />
@@ -280,14 +262,17 @@ export function RoomTypeConfig({
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Tên loại phòng <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  required
+                <select
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ví dụ: Deluxe City View Double"
+                  onChange={(e) => setName(e.target.value as RoomTypeName)}
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
-                />
+                >
+                  {ROOM_TYPE_NAMES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

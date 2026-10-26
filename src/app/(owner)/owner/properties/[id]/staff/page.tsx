@@ -1,31 +1,22 @@
+"use client";
+
 // FR: FR-C11, FR-C13
-// Service: api.listRoles, api.listPermissions, api.listStaff, api.createStaff, api.updateStaff, api.setStaffRole, api.setStaffStatus, api.resetStaffPassword
-import React from "react";
+// API: GET /api/roles, GET/POST /api/properties/{id}/users, PUT/DELETE .../users/{userId}
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { StaffConfig } from "@/features/property-config/components/StaffConfig";
-import { api } from "@/lib/api";
+import { propertyApi, userApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyStaffPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, roles, permissions, staff] = await Promise.all([
-    api.getProperty(id),
-    api.listRoles(),
-    api.listPermissions(),
-    api.listStaff(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyStaffPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, roles, staff] = await Promise.all([propertyApi.get(id), userApi.roles(), userApi.list(id)]);
+    return { property, roles, staff };
+  });
 
   return (
     <div className="space-y-6">
@@ -40,16 +31,13 @@ export default async function PropertyStaffPage({
       </div>
 
       <PageHeader
-        title={`Quản Lý Nhân Viên & Phân Quyền: ${property.name}`}
-        description="Khởi tạo tài khoản nhân viên PMS cho quản lý, lễ tân, buồng phòng và xem trước bảng quyền hạn."
+        title={`Quản Lý Nhân Viên & Phân Quyền: ${data?.property.name ?? ""}`}
+        description="Khởi tạo tài khoản nhân viên PMS cho quản lý, lễ tân, buồng phòng."
       />
 
-      <StaffConfig
-        propertyId={id}
-        roles={roles}
-        permissions={permissions}
-        initialStaff={staff}
-      />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <StaffConfig propertyId={id} roles={data.roles} initialStaff={data.staff} />}
+      </AsyncBoundary>
     </div>
   );
 }

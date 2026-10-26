@@ -1,29 +1,22 @@
+"use client";
+
 // FR: FR-C04, FR-C13
-// Service: api.listPropertyDocs, api.uploadPropertyDoc, api.deletePropertyDoc
-import React from "react";
+// API: GET/PUT /api/properties/{propertyId}/policy-documents
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { DocumentConfig } from "@/features/property-config/components/DocumentConfig";
-import { api } from "@/lib/api";
+import { propertyApi, policyDocumentApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertyDocumentsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, docs] = await Promise.all([
-    api.getProperty(id),
-    api.listPropertyDocs(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertyDocumentsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, docs] = await Promise.all([propertyApi.get(id), policyDocumentApi.list(id)]);
+    return { property, docs: docs.documents };
+  });
 
   return (
     <div className="space-y-6">
@@ -38,11 +31,13 @@ export default async function PropertyDocumentsPage({
       </div>
 
       <PageHeader
-        title={`Tài Liệu & Nội Quy Khách Sạn: ${property.name}`}
+        title={`Tài Liệu & Nội Quy Khách Sạn: ${data?.property.name ?? ""}`}
         description="Nạp cẩm nang hướng dẫn, tiện ích và quy định vào cơ sở dữ liệu tri thức của trợ lý ảo AI."
       />
 
-      <DocumentConfig propertyId={id} initialDocs={docs} />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <DocumentConfig propertyId={id} initialDocs={data.docs} />}
+      </AsyncBoundary>
     </div>
   );
 }

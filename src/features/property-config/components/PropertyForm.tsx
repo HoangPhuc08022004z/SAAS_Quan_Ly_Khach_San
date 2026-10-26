@@ -3,9 +3,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ImageUploader } from "@/components/forms/ImageUploader";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { api } from "@/lib/api";
+import { propertyApi } from "@/lib/api";
 import { toast } from "sonner";
 import { Hotel, Save, Trash2, ArrowLeft } from "lucide-react";
 
@@ -22,9 +21,8 @@ export function PropertyForm({
   const [phone, setPhone] = useState(initialData?.phone || "");
   const [email, setEmail] = useState(initialData?.email || "");
   const [description, setDescription] = useState(initialData?.description || "");
-  const [imageUrl, setImageUrl] = useState(
-    initialData?.image_url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800"
-  );
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>(initialData?.image_url || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -36,27 +34,23 @@ export function PropertyForm({
     }
     setIsSubmitting(true);
     try {
+      const payload = {
+        name: name.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        description: description.trim(),
+        image: imageFile,
+      };
       if (isEdit && initialData?.id) {
-        await api.updateProperty(initialData.id, {
-          name: name.trim(),
-          address: address.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          description: description.trim(),
-          image_url: imageUrl,
-        });
+        // Gọi OpenAPI: PUT /api/properties/{propertyId} (multipart)
+        await propertyApi.update(initialData.id, payload);
         toast.success("Đã cập nhật thông tin khách sạn thành công!");
       } else {
-        const created = await api.createProperty({
-          name: name.trim(),
-          address: address.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          description: description.trim(),
-          image_url: imageUrl,
-        });
+        // Gọi OpenAPI: POST /api/properties (multipart)
+        const created = await propertyApi.create(payload);
         toast.success("Đã tạo mới khách sạn thành công!");
-        router.push(`/owner/properties/${created.id}/setup`);
+        router.push(`/owner/properties/${created.propertyId}/setup`);
         return;
       }
       router.refresh();
@@ -71,11 +65,12 @@ export function PropertyForm({
   const handleDelete = async () => {
     if (!initialData?.id) return;
     try {
-      await api.deleteProperty(initialData.id);
+      // Gọi OpenAPI: DELETE /api/properties/{propertyId}
+      await propertyApi.remove(initialData.id);
       toast.success("Đã xóa khách sạn thành công.");
       router.push("/owner/properties");
-    } catch {
-      toast.error("Không thể xóa khách sạn này.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể xóa khách sạn này.");
     }
   };
 
@@ -198,7 +193,20 @@ export function PropertyForm({
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Hình ảnh đại diện</label>
-            <ImageUploader value={imageUrl} onChange={(url) => setImageUrl(url)} />
+            {imagePreview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imagePreview} alt="Ảnh khách sạn" className="aspect-video max-w-sm w-full rounded-xl border border-slate-200 object-cover dark:border-slate-800" />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setImageFile(file);
+                if (file) setImagePreview(URL.createObjectURL(file));
+              }}
+              className="block text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+            />
           </div>
         </div>
       </form>

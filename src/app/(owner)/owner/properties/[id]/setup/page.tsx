@@ -1,29 +1,22 @@
+"use client";
+
 // FR: FR-C01 đến FR-C12
-// Service: api.getProperty, api.getSetupStatus
-import React from "react";
+// API: GET /api/properties/{id} + tiến độ tính từ các API cấu hình
+import React, { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { SetupWizard } from "@/features/property-config/components/SetupWizard";
-import { api } from "@/lib/api";
+import { propertyApi, computeSetupStatus } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-export default async function PropertySetupPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [property, setupStatus] = await Promise.all([
-    api.getProperty(id),
-    api.getSetupStatus(id),
-  ]);
-
-  if (!property) {
-    notFound();
-  }
+export default function PropertySetupPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { data, loading, error, reload } = useAsyncData(async () => {
+    const [property, setupStatus] = await Promise.all([propertyApi.get(id), computeSetupStatus(id)]);
+    return { property, setupStatus };
+  });
 
   return (
     <div className="space-y-6">
@@ -38,15 +31,13 @@ export default async function PropertySetupPage({
       </div>
 
       <PageHeader
-        title={`Tiến Trình Thiết Lập: ${property.name}`}
+        title={`Tiến Trình Thiết Lập: ${data?.property.name ?? ""}`}
         description="Danh sách các bước cấu hình cần thiết để đưa khách sạn vào trạng thái sẵn sàng đón khách."
       />
 
-      <SetupWizard
-        propertyId={id}
-        propertyName={property.name}
-        setupStatus={setupStatus}
-      />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <SetupWizard propertyId={id} propertyName={data.property.name} setupStatus={data.setupStatus} />}
+      </AsyncBoundary>
     </div>
   );
 }

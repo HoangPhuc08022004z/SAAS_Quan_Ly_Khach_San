@@ -2,9 +2,6 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
 import {
   Hotel,
   Plus,
@@ -20,17 +17,16 @@ import {
 
 export function PropertyList({
   initialProperties,
-  maxProperties = 3,
+  maxProperties,
   setupStatuses = {},
 }: {
   initialProperties: any[];
-  maxProperties?: number;
+  maxProperties?: number; // không truyền = không giới hạn (backend chưa có API trả giới hạn của gói)
   setupStatuses?: Record<string, any>;
 }) {
-  const router = useRouter();
   const [properties] = useState<any[]>(initialProperties);
 
-  const isLimitReached = properties.length >= maxProperties;
+  const isLimitReached = maxProperties !== undefined && properties.length >= maxProperties;
 
   return (
     <div className="space-y-6">
@@ -39,7 +35,7 @@ export function PropertyList({
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Hotel className="w-5 h-5 text-blue-500" />
-            <span>Khách Sạn Trực Thuộc ({properties.length} / {maxProperties})</span>
+            <span>Khách Sạn Trực Thuộc ({maxProperties !== undefined ? `${properties.length} / ${maxProperties}` : properties.length})</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Mỗi khách sạn sở hữu sơ đồ phòng, bảng giá và phân quyền nhân viên độc lập.

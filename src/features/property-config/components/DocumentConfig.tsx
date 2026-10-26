@@ -2,50 +2,57 @@
 
 import React, { useState } from "react";
 import { DataTable, Column } from "@/components/data/DataTable";
-import { StatusBadge } from "@/components/data/StatusBadge";
 import { FileDropzone } from "@/components/forms/FileDropzone";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { DateText } from "@/components/data/DateText";
 import { formatBytes } from "@/lib/utils/format";
-import { api } from "@/lib/api";
+import { policyDocumentApi, type ApiPolicyDocuments } from "@/lib/api";
 import { toast } from "sonner";
-import { FileText, Trash2, Database, UploadCloud } from "lucide-react";
+import { FileText, Trash2, Database } from "lucide-react";
 
 export function DocumentConfig({
   propertyId,
   initialDocs,
 }: {
   propertyId: string;
-  initialDocs: any[];
+  initialDocs: ApiPolicyDocuments["documents"];
 }) {
-  const [docs, setDocs] = useState<any[]>(initialDocs);
-  const [docToDelete, setDocToDelete] = useState<any | null>(null);
+  type Doc = ApiPolicyDocuments["documents"][number];
+  const [docs, setDocs] = useState<Doc[]>(initialDocs);
+  const [docToDelete, setDocToDelete] = useState<Doc | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleUpload = async (fileObj: { name: string; size: number; type: string }) => {
+  // PUT /api/properties/{propertyId}/policy-documents (multipart): thêm file và/hoặc xóa theo fileId
+  const refresh = async () => setDocs((await policyDocumentApi.list(propertyId)).documents);
+
+  const handleUpload = async (_meta: unknown, file: File) => {
+    setIsUploading(true);
     try {
-      const created = await api.uploadPropertyDoc(propertyId, fileObj as any);
-      setDocs((prev) => [created, ...prev]);
-      toast.success(`Đã tải lên tài liệu "${fileObj.name}" thành công!`);
-    } catch {
-      toast.error("Không thể tải tài liệu lên.");
+      const res = await policyDocumentApi.update(propertyId, [file], []);
+      await refresh();
+      toast.success(res?.message || `Đã tải lên tài liệu "${file.name}" thành công!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể tải tài liệu lên.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleDelete = async () => {
     if (!docToDelete) return;
     try {
-      await api.deletePropertyDoc(propertyId, docToDelete.id);
-      setDocs((prev) => prev.filter((d) => d.id !== docToDelete.id));
+      await policyDocumentApi.update(propertyId, [], [docToDelete.fileId]);
+      await refresh();
       toast.success("Đã xóa tài liệu khỏi khách sạn.");
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể xóa tài liệu này.");
+    } finally {
       setDocToDelete(null);
-    } catch {
-      toast.error("Không thể xóa tài liệu này.");
     }
   };
 
-  const columns: Column<any>[] = [
+  const columns: Column<Doc>[] = [
     {
-      key: "filename",
+      key: "fileName",
       header: "Tên tài liệu chính sách",
       sortable: true,
       render: (d) => (
@@ -54,22 +61,11 @@ export function DocumentConfig({
             <FileText className="w-4 h-4" />
           </div>
           <div>
-            <div className="font-semibold text-xs text-slate-900 dark:text-white">{d.filename}</div>
-            <div className="text-[11px] text-slate-400">{formatBytes(d.file_size)} • {d.mime_type}</div>
+            <div className="font-semibold text-xs text-slate-900 dark:text-white">{d.fileName}</div>
+            <div className="text-[11px] text-slate-400">{formatBytes(d.fileSize)} • {d.fileType}</div>
           </div>
         </div>
       ),
-    },
-    {
-      key: "created_at",
-      header: "Ngày tải lên",
-      sortable: true,
-      render: (d) => <DateText date={d.created_at} type="datetime" className="text-xs text-slate-500" />,
-    },
-    {
-      key: "index_status",
-      header: "Trạng thái Chatbot AI",
-      render: (d) => <StatusBadge type="index" status={d.index_status || "INDEXED"} />,
     },
     {
       key: "actions",
@@ -104,6 +100,7 @@ export function DocumentConfig({
           maxSizeBytes={10 * 1024 * 1024}
           onFileSelect={handleUpload}
         />
+        {isUploading && <p className="text-xs text-blue-600">Đang tải lên...</p>}
       </div>
 
       <div className="space-y-3">
@@ -116,7 +113,7 @@ export function DocumentConfig({
       <ConfirmDialog
         isOpen={!!docToDelete}
         title="Xác nhận xóa tài liệu nội quy"
-        description={`Bạn có chắc chắn muốn xóa tệp "${docToDelete?.filename}"? Chatbot sẽ không thể tra cứu thông tin từ tài liệu này.`}
+        description={`Bạn có chắc chắn muốn xóa tệp "${docToDelete?.fileName}"? Chatbot sẽ không thể tra cứu thông tin từ tài liệu này.`}
         confirmText="Xóa tài liệu"
         variant="destructive"
         onConfirm={handleDelete}
