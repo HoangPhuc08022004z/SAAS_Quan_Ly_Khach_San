@@ -143,6 +143,13 @@ class SaasApiClient implements ISaasOpenApiService {
 
       // Handle Errors
       if (!response.ok) {
+        // Tunnel ngrok tắt → ngrok trả trang HTML 404 (không phải lỗi của API)
+        const ngrokError = response.headers.get("ngrok-error-code");
+        if (ngrokError) {
+          throw new Error(
+            `Backend đang offline (ngrok ${ngrokError}). Hãy bật lại backend/ngrok hoặc cập nhật NEXT_PUBLIC_SAAS_API_BASE_URL trong .env.`
+          );
+        }
         let errorMessage = `Yêu cầu thất bại với mã lỗi HTTP ${response.status}`;
         if (contentType.includes("application/json")) {
           try {
@@ -155,7 +162,11 @@ class SaasApiClient implements ISaasOpenApiService {
         } else {
           try {
             const errorText = await response.text();
-            if (errorText) errorMessage = errorText;
+            if (errorText) {
+              errorMessage = /^\s*<(!doctype|html)/i.test(errorText)
+                ? `${errorMessage} (máy chủ trả về trang HTML)`
+                : errorText;
+            }
           } catch {
             // fallback
           }

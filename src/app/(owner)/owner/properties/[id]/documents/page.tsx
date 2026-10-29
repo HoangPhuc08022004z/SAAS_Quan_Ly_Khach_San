@@ -15,7 +15,7 @@ export default function PropertyDocumentsPage({ params }: { params: Promise<{ id
   const { id } = use(params);
   const { data, loading, error, reload } = useAsyncData(async () => {
     const [property, docs] = await Promise.all([propertyApi.get(id), policyDocumentApi.list(id)]);
-    return { property, docs: docs.documents };
+    return { property, docs: docs.documents ?? [] };
   });
 
   return (

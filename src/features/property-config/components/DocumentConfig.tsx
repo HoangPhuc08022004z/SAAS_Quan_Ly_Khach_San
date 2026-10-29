@@ -22,7 +22,7 @@ export function DocumentConfig({
   const [isUploading, setIsUploading] = useState(false);
 
   // PUT /api/properties/{propertyId}/policy-documents (multipart): thêm file và/hoặc xóa theo fileId
-  const refresh = async () => setDocs((await policyDocumentApi.list(propertyId)).documents);
+  const refresh = async () => setDocs((await policyDocumentApi.list(propertyId)).documents ?? []);
 
   const handleUpload = async (_meta: unknown, file: File) => {
     setIsUploading(true);

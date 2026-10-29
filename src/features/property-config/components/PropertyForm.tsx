@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
@@ -25,6 +25,8 @@ export function PropertyForm({
   const [imagePreview, setImagePreview] = useState<string>(initialData?.image_url || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deletingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +65,10 @@ export function PropertyForm({
   };
 
   const handleDelete = async () => {
-    if (!initialData?.id) return;
+    // Chặn gọi DELETE nhiều lần (bấm lặp / Enter lặp khi đang xử lý)
+    if (!initialData?.id || deletingRef.current) return;
+    deletingRef.current = true;
+    setIsDeleting(true);
     try {
       // Gọi OpenAPI: DELETE /api/properties/{propertyId}
       await propertyApi.remove(initialData.id);
@@ -71,6 +76,10 @@ export function PropertyForm({
       router.push("/owner/properties");
     } catch (err: any) {
       toast.error(err?.message || "Không thể xóa khách sạn này.");
+      setIsDeleteDialogOpen(false);
+    } finally {
+      deletingRef.current = false;
+      setIsDeleting(false);
     }
   };
 
@@ -217,6 +226,7 @@ export function PropertyForm({
         description={`Bạn có chắc chắn muốn xóa khách sạn "${initialData?.name}"? Toàn bộ loại phòng, phòng và dữ liệu cấu hình liên quan sẽ bị xóa vĩnh viễn.`}
         confirmText="Xóa khách sạn"
         variant="destructive"
+        isLoading={isDeleting}
         onConfirm={handleDelete}
         onClose={() => setIsDeleteDialogOpen(false)}
       />

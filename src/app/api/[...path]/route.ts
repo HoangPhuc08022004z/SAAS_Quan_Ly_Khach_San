@@ -85,15 +85,15 @@ async function proxyRequest(
       body: body || undefined,
     });
 
-    // ngrok trả 404 HTML khi tunnel tắt (ERR_NGROK_3200) → báo rõ thay vì "404" khó hiểu
+    // ngrok tự trả lỗi (HTML) khi tunnel tắt hoặc backend phía sau không phản hồi
     const ngrokError = backendRes.headers.get("ngrok-error-code");
     if (ngrokError) {
-      return NextResponse.json(
-        {
-          message: `Backend đang offline (ngrok ${ngrokError}). Hãy bật lại backend/ngrok hoặc cập nhật NEXT_PUBLIC_SAAS_API_BASE_URL trong .env.`,
-        },
-        { status: 502 }
-      );
+      const reason =
+        ngrokError === "ERR_NGROK_8012" || ngrokError === "8012"
+          ? "ngrok kết nối được nhưng ứng dụng Spring Boot không phản hồi (đã dừng/treo/crash khi xử lý yêu cầu). Kiểm tra log backend."
+          : "Hãy bật lại backend/ngrok hoặc cập nhật NEXT_PUBLIC_SAAS_API_BASE_URL trong .env.";
+      console.error(`[proxy] ngrok ${ngrokError} khi ${req.method} ${targetUrl}`);
+      return NextResponse.json({ message: `Backend không phản hồi (ngrok ${ngrokError}). ${reason}` }, { status: 502 });
     }
 
     const responseHeaders: Record<string, string> = {
@@ -111,7 +111,9 @@ async function proxyRequest(
       responseBody = "";
     }
 
-    return new NextResponse(responseBody, {
+    // 204/205/304 không được phép có body (Response constructor sẽ ném lỗi) → trả null body
+    const noBody = [204, 205, 304].includes(backendRes.status);
+    return new NextResponse(noBody ? null : responseBody, {
       status: backendRes.status,
       headers: responseHeaders,
     });

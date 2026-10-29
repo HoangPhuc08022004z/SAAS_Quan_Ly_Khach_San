@@ -1,19 +1,21 @@
 // FR-S02, FR-S03: Trang chủ và bảng giá gói dịch vụ SaaS
-// API: GET /api/v1/saas/user/Plan/List (public); fallback mock nếu backend không phản hồi
+// API: GET /api/v1/saas/user/Plan/List (public) — chỉ hiển thị gói lấy từ backend
 
 import React from "react";
 import Link from "next/link";
-import { api, fetchPlans } from "@/lib/api";
+import { fetchPlans } from "@/lib/api";
 import { toPlan } from "@/lib/api/adapters";
 import type { Plan } from "@/lib/api/types";
 
 export const dynamic = "force-dynamic";
 
-async function loadPlans(): Promise<Plan[]> {
+async function loadPlans(): Promise<{ plans: Plan[]; failed: boolean }> {
   try {
-    return (await fetchPlans()).filter((p) => p.status === "ACTIVE").map(toPlan);
-  } catch {
-    return api.listPublicPlans();
+    const plans = (await fetchPlans()).filter((p) => p.status === "ACTIVE").map(toPlan);
+    return { plans, failed: false };
+  } catch (err) {
+    console.error("[home] Không tải được danh sách gói từ backend:", err);
+    return { plans: [], failed: true };
   }
 }
 import { PublicHeader, PublicFooter } from "@/features/public/components/PublicNav";
@@ -22,7 +24,7 @@ import { PlanGrid } from "@/features/public/components/PlanGrid";
 import { Building2, ArrowRight } from "lucide-react";
 
 export default async function HomePage() {
-  const plans = await loadPlans();
+  const { plans, failed } = await loadPlans();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -43,7 +45,15 @@ export default async function HomePage() {
               </p>
             </div>
 
-            <PlanGrid plans={plans} />
+            {plans.length > 0 ? (
+              <PlanGrid plans={plans} />
+            ) : (
+              <p className="text-center text-sm text-slate-500">
+                {failed
+                  ? "Không thể tải bảng giá từ hệ thống lúc này. Vui lòng thử lại sau."
+                  : "Hiện chưa có gói dịch vụ nào đang mở đăng ký."}
+              </p>
+            )}
           </div>
         </section>
 

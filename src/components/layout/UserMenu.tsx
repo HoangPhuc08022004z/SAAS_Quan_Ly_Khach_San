@@ -14,6 +14,7 @@ export function UserMenu() {
 
   const displayName = user?.full_name || account?.full_name || "Người dùng";
   const displayEmail = user?.email || account?.email || "";
+  const profileHref = isAdmin ? "/admin/profile" : isOwner ? "/owner/profile" : "/pms/profile";
   const roleLabel = isAdmin ? "SaaS Admin" : isOwner ? "Chủ khách sạn (Owner)" : role?.name || "Nhân viên PMS";
 
   const handleLogout = () => {
@@ -54,6 +55,14 @@ export function UserMenu() {
           </div>
 
           <div className="py-1 space-y-0.5">
+            <Link
+              href={profileHref}
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-lg"
+            >
+              <User className="w-3.5 h-3.5 text-slate-500" />
+              <span>Hồ sơ cá nhân</span>
+            </Link>
             <Link
               href="/admin"
               onClick={() => setIsOpen(false)}

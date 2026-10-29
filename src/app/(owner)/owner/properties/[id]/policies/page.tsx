@@ -19,7 +19,7 @@ export default function PropertyPoliciesPage({ params }: { params: Promise<{ id:
       policyApi.formulas(),
       policyApi.get(id),
     ]);
-    return { property, formulas, applied: applied.policies };
+    return { property, formulas, applied: applied.policies ?? [] };
   });
 
   return (
