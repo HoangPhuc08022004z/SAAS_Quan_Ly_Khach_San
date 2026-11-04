@@ -10,3 +10,4 @@ export { saasApi } from "./saas-api";
 export * from "./saas-api";
 export * from "./types/openapi.interface";
 export * from "./property-api";
+export * from "./pms-public-api";
