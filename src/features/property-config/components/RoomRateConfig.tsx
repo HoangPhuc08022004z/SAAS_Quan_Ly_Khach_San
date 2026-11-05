@@ -24,7 +24,7 @@ function RateForm({
   initialRate: ApiRoomRate | null;
 }) {
   const [rate, setRate] = useState<ApiRoomRate | null>(initialRate);
-  const [price, setPrice] = useState<number>(initialRate ? Number(initialRate.price) : 0);
+  const [price, setPrice] = useState<string>(initialRate ? String(Number(initialRate.price)) : "");
   const [description, setDescription] = useState(initialRate?.description ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const label = RATE_LABELS[rateName];
@@ -32,7 +32,7 @@ function RateForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!(price > 0)) {
+    if (!(Number(price) > 0)) {
       toast.error("Vui lòng nhập mức giá hợp lệ (> 0).");
       return;
     }
@@ -99,7 +99,8 @@ function RateForm({
             min="0"
             required
             value={price}
-            onChange={(e) => setPrice(Number(e.target.value))}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="Ví dụ: 1500000"
             className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
           />
         </div>

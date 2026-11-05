@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { PMS_NAV } from "@/config/nav";
+import { useCan } from "@/lib/auth/use-can";
+import { useSessionStore } from "@/lib/auth/session-store";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { MobileDrawer } from "./MobileDrawer";
@@ -15,7 +19,35 @@ interface AppShellProps {
 
 export function AppShell({ portal, children }: AppShellProps) {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-  const { isTenantSuspended, isSubscriptionExpired } = useSession();
+  const { isTenantSuspended, isSubscriptionExpired, isAdmin, isOwner, isPmsStaff } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [hydrated, setHydrated] = useState(() => useSessionStore.persist.hasHydrated());
+
+  useEffect(() => {
+    if (useSessionStore.persist.hasHydrated()) setHydrated(true);
+    return useSessionStore.persist.onFinishHydration(() => setHydrated(true));
+  }, []);
+
+  // Chặn vào sai cổng: mỗi cổng chỉ nhận đúng loại tài khoản (Admin / Owner / nhân viên PMS)
+  const allowed = portal === "admin" ? isAdmin : portal === "owner" ? isOwner : isPmsStaff;
+  useEffect(() => {
+    if (hydrated && !allowed) router.replace(portal === "pms" ? "/pms/login" : "/login");
+  }, [hydrated, allowed, portal, router]);
+
+  // Trang PMS yêu cầu quyền cụ thể: lấy mục menu khớp đường dẫn dài nhất
+  const required =
+    portal === "pms"
+      ? [...PMS_NAV]
+          .filter((i) => i.permission && (pathname === i.href || pathname.startsWith(`${i.href}/`)))
+          .sort((a, b) => b.href.length - a.href.length)[0]?.permission
+      : undefined;
+  const hasPermission = useCan(required);
+  useEffect(() => {
+    if (hydrated && allowed && !hasPermission) router.replace("/pms");
+  }, [hydrated, allowed, hasPermission, router]);
+
+  if (!hydrated || !allowed || !hasPermission) return null;
 
   const isBlockedFromPms = portal === "pms" && (isTenantSuspended || isSubscriptionExpired);
 
@@ -48,17 +80,11 @@ export function AppShell({ portal, children }: AppShellProps) {
                 Tổ chức khách sạn đang bị tạm khóa
               </h2>
               <p className="mt-2 text-sm text-rose-700 dark:text-rose-300 max-w-md mx-auto">
-                Gói thuê bao của tổ chức này đã hết hạn hoặc bị tạm ngưng. Toàn bộ tính năng vận hành PMS tạm thời bị khóa cho đến khi gia hạn.
+                Gói thuê bao của tổ chức này đã hết hạn hoặc bị tạm ngưng. Toàn bộ tính năng vận hành PMS tạm thời bị khóa. Vui lòng liên hệ chủ khách sạn để gia hạn.
               </p>
               <div className="mt-6 flex justify-center gap-3">
                 <Link
-                  href="/owner/subscription"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm"
-                >
-                  Đến trang Gia hạn thuê bao
-                </Link>
-                <Link
-                  href="/login"
+                  href="/pms/login"
                   className="px-4 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                 >
                   Đổi tài khoản khác

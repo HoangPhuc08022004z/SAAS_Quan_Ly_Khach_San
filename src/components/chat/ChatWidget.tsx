@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { MessageSquare, Send, X, Bot, Sparkles, AlertCircle } from "lucide-react";
-import { api, askChatbot } from "@/lib/api";
+import { api, askChatbot, ownerChatApi, pmsChatApi, publicApi } from "@/lib/api";
 import { DisclaimerNote } from "./DisclaimerNote";
 import { SourceCitations } from "./SourceCitations";
 import { FeedbackButtons, TypingIndicator, RoleSuggestionChips } from "./ChatHelpers";
@@ -19,7 +19,7 @@ export interface ChatMessage {
 }
 
 interface ChatWidgetProps {
-  mode: "guest" | "staff" | "platform";
+  mode: "guest" | "staff" | "platform" | "owner";
   propertyId?: string;
   isFloating?: boolean;
   className?: string;
@@ -39,7 +39,7 @@ export function ChatWidget({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { role, currentPropertyId } = useSession();
 
-  const targetPropId = propertyId || currentPropertyId || "prop_abc_hn";
+  const targetPropId = propertyId || currentPropertyId || "";
 
   // Initial welcome message and suggestions
   useEffect(() => {
@@ -48,6 +48,8 @@ export function ChatWidget({
       welcome = "Chào mừng quý khách! Tôi có thể giải đáp thông tin về giá phòng, giờ nhận/trả phòng và chính sách khách sạn.";
     } else if (mode === "staff") {
       welcome = `Chào ${role?.name || "bạn"}! Tôi là trợ lý SOP và dữ liệu PMS. Bạn có thể hỏi số liệu ngày hoặc quy trình vận hành.`;
+    } else if (mode === "owner") {
+      welcome = "Chào bạn! Tôi trả lời dựa trên tài liệu chính sách của khách sạn này. Bạn muốn hỏi gì?";
     } else if (mode === "platform") {
       welcome = "Chào bạn! Tôi có thể hỗ trợ giải đáp các thắc mắc về cài đặt hệ thống SaaS, cổng thanh toán hoặc tạo yêu cầu hỗ trợ.";
     }
@@ -80,9 +82,14 @@ export function ChatWidget({
       };
 
       if (mode === "guest") {
-        botResponse = await api.askGuestBot(targetPropId, query);
+        // POST /api/public/properties/{propertyId}/chat
+        botResponse = { answer: await publicApi.chat(targetPropId, query) };
       } else if (mode === "staff") {
-        botResponse = await api.askStaffBot(query, { role: role?.code || "MANAGER", propertyId: targetPropId });
+        // POST /api/pms/chat (Property lấy từ token nhân viên)
+        botResponse = { answer: await pmsChatApi.ask(query) };
+      } else if (mode === "owner") {
+        // GET /api/properties/{propertyId}/chat?question=
+        botResponse = { answer: await ownerChatApi.ask(targetPropId, query) };
       } else {
         try {
           // Gọi OpenAPI: GET /api/v1/chat/saas?question={query}
@@ -109,13 +116,15 @@ export function ChatWidget({
           canEscalate: botResponse.canEscalateToTicket,
         },
       ]);
-    } catch {
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
         {
           id: `bot_err_${Date.now()}`,
           sender: "bot",
-          text: "Xin lỗi, hiện tại không thể kết nối tới mô hình AI. Vui lòng thử lại sau.",
+          text: err?.message
+            ? `Không thể trả lời lúc này: ${err.message}`
+            : "Xin lỗi, hiện tại không thể kết nối tới mô hình AI. Vui lòng thử lại sau.",
         },
       ]);
     } finally {
@@ -149,7 +158,13 @@ export function ChatWidget({
           </div>
           <div>
             <h4 className="text-xs font-bold leading-tight">
-              {mode === "guest" ? "Trợ lý Khách sạn" : mode === "staff" ? "Trợ lý Nhân viên PMS" : "Hỗ trợ Nền tảng SaaS"}
+              {mode === "guest"
+                ? "Trợ lý Khách sạn"
+                : mode === "staff"
+                  ? "Trợ lý Nhân viên PMS"
+                  : mode === "owner"
+                    ? "Trợ lý Chủ khách sạn"
+                    : "Hỗ trợ Nền tảng SaaS"}
             </h4>
             <span className="text-[10px] text-blue-100 flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5" /> AI RAG Powered
@@ -184,7 +199,7 @@ export function ChatWidget({
                   : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-200/60 dark:border-slate-700/60"
               )}
             >
-              <p>{m.text}</p>
+              <p className="whitespace-pre-wrap">{m.text}</p>
               {m.liveAvailability && (
                 <div className="mt-2 p-2 rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px]">
                   <strong>Phòng trống thời gian thực:</strong>

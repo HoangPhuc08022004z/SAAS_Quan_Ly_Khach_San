@@ -96,7 +96,7 @@ export function DocumentConfig({
         </p>
 
         <FileDropzone
-          acceptedTypes={[".pdf", ".docx", ".txt"]}
+          acceptedTypes={[".pdf"]}
           maxSizeBytes={10 * 1024 * 1024}
           onFileSelect={handleUpload}
         />

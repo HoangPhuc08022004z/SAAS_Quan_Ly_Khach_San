@@ -41,7 +41,7 @@ export function Topbar({ portal, onOpenMobileMenu, onOpenChatbot }: TopbarProps)
           </button>
         )}
 
-        {(portal === "owner" || portal === "pms") && <PropertySwitcher />}
+        {(portal === "owner" || portal === "pms") && <PropertySwitcher portal={portal} />}
 
         {/* Quick Search Reservation in PMS (Ctrl+K) */}
         {portal === "pms" && (
@@ -77,7 +77,7 @@ export function Topbar({ portal, onOpenMobileMenu, onOpenChatbot }: TopbarProps)
         <NotificationBell />
         <ThemeToggle />
         <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
-        <UserMenu />
+        <UserMenu portal={portal} />
       </div>
     </header>
   );

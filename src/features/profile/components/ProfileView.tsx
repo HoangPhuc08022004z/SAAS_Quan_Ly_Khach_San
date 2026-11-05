@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/data/StatusBadge";
 import { saasApi } from "@/lib/api";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useSession } from "@/lib/auth/use-session";
+import { normalizePermission } from "@/config/roles";
 
 interface InfoRowProps {
   icon: React.ReactNode;
@@ -104,11 +105,16 @@ function AdminProfile() {
 }
 
 function PmsProfile() {
-  const { user, role, property } = useSession();
+  const { user, role, property, permissions } = useSession();
   return (
-    <ProfileCard name={user?.full_name || "Nhân viên"} roleLabel={role?.name || "Nhân viên PMS"}>
+    <ProfileCard name={user?.full_name || "Nhân viên"} roleLabel={`Nhân viên PMS · ${role?.name ?? ""}`}>
       <InfoRow icon={<Mail className="w-4 h-4" />} label="Email nhân viên" value={user?.email} />
       <InfoRow icon={<UserCircle2 className="w-4 h-4" />} label="Vai trò" value={role?.name} />
+      <InfoRow
+        icon={<ShieldCheck className="w-4 h-4" />}
+        label={`Quyền được cấp (${permissions.length})`}
+        value={permissions.length ? permissions.map(normalizePermission).join(", ") : "Chưa được cấp quyền nào"}
+      />
       <InfoRow icon={<Hotel className="w-4 h-4" />} label="Khách sạn làm việc" value={property?.name} />
     </ProfileCard>
   );

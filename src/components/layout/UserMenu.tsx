@@ -6,21 +6,28 @@ import { useRouter } from "next/navigation";
 import { User, LogOut, Shield, Hotel, Sparkles, ChevronDown } from "lucide-react";
 import { saasApi } from "@/lib/api";
 import { useSession } from "@/lib/auth/use-session";
+import { ACCOUNT_KINDS } from "@/config/roles";
 
-export function UserMenu() {
-  const { account, user, role, logoutAll, isAdmin, isOwner } = useSession();
+export function UserMenu({ portal }: { portal: "admin" | "owner" | "pms" }) {
+  const { account, user, role, logoutAll, isAdmin, isOwner, isPmsStaff } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
-  const displayName = user?.full_name || account?.full_name || "Người dùng";
-  const displayEmail = user?.email || account?.email || "";
-  const profileHref = isAdmin ? "/admin/profile" : isOwner ? "/owner/profile" : "/pms/profile";
-  const roleLabel = isAdmin ? "SaaS Admin" : isOwner ? "Chủ khách sạn (Owner)" : role?.name || "Nhân viên PMS";
+  // Store còn dữ liệu mẫu của nhân viên PMS → chỉ dùng user PMS ở cổng PMS, ngược lại dùng tài khoản Owner/Admin
+  const isPmsPortal = portal === "pms";
+  const profileHref = `/${portal}/profile`;
+  const displayName = (isPmsPortal ? user?.full_name : account?.full_name) || "Người dùng";
+  const displayEmail = (isPmsPortal ? user?.email : account?.email) || "";
+  const roleLabel = isPmsPortal
+    ? `${ACCOUNT_KINDS.STAFF.label} · ${role?.name ?? ""}`
+    : portal === "admin"
+      ? ACCOUNT_KINDS.ADMIN.label
+      : ACCOUNT_KINDS.OWNER.label;
 
   const handleLogout = () => {
     saasApi.setToken(null);
     logoutAll();
-    router.push("/login");
+    router.push(isPmsPortal ? "/pms/login" : "/login");
   };
 
   return (
@@ -63,6 +70,7 @@ export function UserMenu() {
               <User className="w-3.5 h-3.5 text-slate-500" />
               <span>Hồ sơ cá nhân</span>
             </Link>
+            {isAdmin && (
             <Link
               href="/admin"
               onClick={() => setIsOpen(false)}
@@ -71,6 +79,8 @@ export function UserMenu() {
               <Shield className="w-3.5 h-3.5 text-indigo-500" />
               <span>Cổng SaaS Admin</span>
             </Link>
+            )}
+            {isOwner && (
             <Link
               href="/owner"
               onClick={() => setIsOpen(false)}
@@ -79,6 +89,8 @@ export function UserMenu() {
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>Cổng Owner</span>
             </Link>
+            )}
+            {isPmsStaff && (
             <Link
               href="/pms"
               onClick={() => setIsOpen(false)}
@@ -87,6 +99,8 @@ export function UserMenu() {
               <Hotel className="w-3.5 h-3.5 text-blue-500" />
               <span>Cổng Vận hành PMS</span>
             </Link>
+            )}
+            {!isPmsPortal && (
             <Link
               href="/dev/reset"
               onClick={() => setIsOpen(false)}
@@ -94,6 +108,7 @@ export function UserMenu() {
             >
               <span>🛠️ Đặt lại dữ liệu mẫu</span>
             </Link>
+            )}
           </div>
 
           <div className="pt-1 border-t border-slate-100 dark:border-slate-800">

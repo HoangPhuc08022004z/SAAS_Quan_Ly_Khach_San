@@ -167,11 +167,22 @@ export interface ApiPropertyService {
   catalogStatus?: string;
 }
 
+// GET /api/policy-formulas trả kèm định nghĩa tham số của từng công thức
+export interface ApiPolicyParamDef {
+  name: string;
+  type: string;
+  required?: boolean;
+  min?: number | string | null;
+  max?: number | string | null;
+  minExclusive?: number | string | null;
+}
+
 export interface ApiPolicyFormula {
   policyFormulaId: number;
   policyType: string;
   name: string;
   status?: string;
+  parameters?: ApiPolicyParamDef[];
 }
 
 export interface ApiHotelPolicies {

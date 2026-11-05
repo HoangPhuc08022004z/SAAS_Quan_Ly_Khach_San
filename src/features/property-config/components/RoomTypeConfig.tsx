@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/data/DataTable";
 import { TagInput } from "@/components/forms/TagInput";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { roomTypeApi, ROOM_TYPE_NAMES, type RoomTypeName } from "@/lib/api";
+import { MoneyInput } from "@/components/forms/MoneyInput";
+import { MoneyText } from "@/components/data/MoneyText";
+import { roomRateApi, roomTypeApi, ROOM_TYPE_NAMES, type ApiRoomRate, type RateName, type RoomTypeName } from "@/lib/api";
 import { toUiRoomType } from "@/lib/api/adapters";
 import { toast } from "sonner";
 import {
@@ -25,11 +28,20 @@ import {
 export function RoomTypeConfig({
   propertyId,
   initialRoomTypes,
+  initialRates = [],
 }: {
   propertyId: string;
   initialRoomTypes: any[];
+  initialRates?: ApiRoomRate[];
 }) {
   const [roomTypes, setRoomTypes] = useState<any[]>(initialRoomTypes);
+  // Giá phòng đi cùng loại phòng: POST/PUT /room-rates được gọi ngay trong form loại phòng
+  const [rates, setRates] = useState<ApiRoomRate[]>(initialRates);
+  const [standardPrice, setStandardPrice] = useState(0);
+  const [weekendPrice, setWeekendPrice] = useState(0);
+
+  const rateOf = (roomTypeId: string | number, rateName: RateName) =>
+    rates.find((r) => String(r.roomTypeId) === String(roomTypeId) && r.rateName === rateName);
   const [editingType, setEditingType] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [typeToDelete, setTypeToDelete] = useState<any | null>(null);
@@ -55,6 +67,8 @@ export function RoomTypeConfig({
     setNumberOfRooms(5);
     setAmenities(["Wifi", "Điều hòa", "Minibar"]);
     setImageUrl("https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800");
+    setStandardPrice(0);
+    setWeekendPrice(0);
     setIsModalOpen(true);
   };
 
@@ -68,11 +82,30 @@ export function RoomTypeConfig({
     setNumberOfRooms(rt.number_of_rooms || 5);
     setAmenities(Array.isArray(rt.amenities) ? rt.amenities : ["Wifi"]);
     setImageUrl(rt.image_url || "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800");
+    setStandardPrice(Number(rateOf(rt.id, "STANDARD_RATE")?.price ?? 0));
+    setWeekendPrice(Number(rateOf(rt.id, "WEEKEND_RATE")?.price ?? 0));
     setIsModalOpen(true);
+  };
+
+  // Lưu một mức giá: đã có → PUT, chưa có và có nhập → POST. Trả về mức giá mới (hoặc null nếu không đổi)
+  const saveRate = async (roomTypeId: number, rateName: RateName, price: number): Promise<ApiRoomRate | null> => {
+    const existing = rateOf(roomTypeId, rateName);
+    if (existing) {
+      if (price > 0 && Number(existing.price) !== price) {
+        return roomRateApi.update(propertyId, existing.roomRateId, { roomTypeId, rateName, price });
+      }
+      return null;
+    }
+    if (price > 0) return roomRateApi.create(propertyId, { roomTypeId, rateName, price });
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingType && !(standardPrice > 0)) {
+      toast.error("Vui lòng nhập giá tiêu chuẩn mỗi đêm (> 0).");
+      return;
+    }
     setIsSaving(true);
     try {
       const payload = {
@@ -86,16 +119,36 @@ export function RoomTypeConfig({
         image: imageUrl,
       };
 
+      let saved: ReturnType<typeof toUiRoomType>;
       if (editingType) {
         // Gọi OpenAPI: PUT /api/properties/{propertyId}/room-types/{roomTypeId}
-        const updated = toUiRoomType(await roomTypeApi.update(propertyId, editingType.id, payload), propertyId);
-        setRoomTypes((prev) => prev.map((rt) => (rt.id === updated.id ? updated : rt)));
-        toast.success("Đã cập nhật loại phòng thành công!");
+        saved = toUiRoomType(await roomTypeApi.update(propertyId, editingType.id, payload), propertyId);
+        setRoomTypes((prev) => prev.map((rt) => (rt.id === saved.id ? saved : rt)));
       } else {
         // Gọi OpenAPI: POST /api/properties/{propertyId}/room-types
-        const created = toUiRoomType(await roomTypeApi.create(propertyId, payload), propertyId);
-        setRoomTypes((prev) => [...prev, created]);
-        toast.success("Đã tạo mới loại phòng thành công!");
+        saved = toUiRoomType(await roomTypeApi.create(propertyId, payload), propertyId);
+        setRoomTypes((prev) => [...prev, saved]);
+      }
+
+      // Giá phòng: POST/PUT /api/properties/{propertyId}/room-rates
+      const typeId = Number(saved.id);
+      try {
+        const results = await Promise.all([
+          saveRate(typeId, "STANDARD_RATE", standardPrice),
+          saveRate(typeId, "WEEKEND_RATE", weekendPrice),
+        ]);
+        const changed = results.filter((r): r is ApiRoomRate => !!r);
+        if (changed.length) {
+          setRates((prev) => [
+            ...prev.filter((r) => !changed.some((c) => c.roomRateId === r.roomRateId)),
+            ...changed,
+          ]);
+        }
+        toast.success(editingType ? "Đã cập nhật loại phòng thành công!" : "Đã tạo loại phòng và giá thành công!");
+      } catch (rateErr: any) {
+        toast.error(
+          `Đã lưu loại phòng nhưng chưa lưu được giá: ${rateErr?.message || "lỗi không xác định"}. Hãy bấm Sửa để nhập lại giá.`
+        );
       }
       setIsModalOpen(false);
     } catch (err: any) {
@@ -165,6 +218,27 @@ export function RoomTypeConfig({
       ),
     },
     {
+      key: "price",
+      header: "Giá / đêm",
+      render: (rt) => {
+        const std = rateOf(rt.id, "STANDARD_RATE");
+        const wk = rateOf(rt.id, "WEEKEND_RATE");
+        if (!std && !wk) return <span className="text-[11px] text-slate-400">Chưa có giá</span>;
+        return (
+          <div className="space-y-0.5 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-slate-400">Ngày thường</span>
+              {std ? <MoneyText amount={std.price} className="font-bold text-emerald-600" /> : <span>—</span>}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-slate-400">Cuối tuần</span>
+              {wk ? <MoneyText amount={wk.price} className="font-bold text-amber-600" /> : <span>—</span>}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
       key: "status",
       header: "Trạng thái",
       render: (rt) => (
@@ -181,7 +255,7 @@ export function RoomTypeConfig({
     },
     {
       key: "actions",
-      header: "Cấu hình",
+      header: "Thao tác",
       render: (rt) => (
         <div className="flex items-center gap-2">
           <Link
@@ -191,24 +265,19 @@ export function RoomTypeConfig({
             <span>Phòng</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
-          <Link
-            href={`/owner/room-types/${rt.id}/rate?propertyId=${propertyId}`}
-            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-xs font-bold dark:bg-emerald-950 dark:text-emerald-400 flex items-center gap-1"
-          >
-            <DollarSign className="w-3 h-3" />
-            <span>Giá</span>
-          </Link>
           <button
             onClick={() => openEditModal(rt)}
-            className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            <Edit2 className="w-3.5 h-3.5" />
+            <Edit2 className="w-3 h-3" />
+            <span>Sửa</span>
           </button>
           <button
             onClick={() => setTypeToDelete(rt)}
-            className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold dark:border-rose-900 dark:hover:bg-rose-950/40"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-3 h-3" />
+            <span>Xóa</span>
           </button>
         </div>
       ),
@@ -280,12 +349,11 @@ export function RoomTypeConfig({
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Sức chứa (người lớn)
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     max="10"
                     value={capacity}
-                    onChange={(e) => setCapacity(Number(e.target.value))}
+                    onValueChange={(n) => setCapacity(n)}
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                   />
                 </div>
@@ -294,12 +362,11 @@ export function RoomTypeConfig({
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Chỉ tiêu số phòng (number_of_rooms) <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     required
                     value={numberOfRooms}
-                    onChange={(e) => setNumberOfRooms(Number(e.target.value))}
+                    onValueChange={(n) => setNumberOfRooms(n)}
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                   />
                 </div>
@@ -323,13 +390,27 @@ export function RoomTypeConfig({
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Số lượng giường
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     value={numBeds}
-                    onChange={(e) => setNumBeds(Number(e.target.value))}
+                    onValueChange={(n) => setNumBeds(n)}
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Giá ngày thường / đêm (VNĐ) {!editingType && <span className="text-rose-500">*</span>}
+                  </label>
+                  <MoneyInput value={standardPrice} onChange={setStandardPrice} placeholder="Ví dụ: 800.000" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Giá cuối tuần / đêm (VNĐ)
+                  </label>
+                  <MoneyInput value={weekendPrice} onChange={setWeekendPrice} placeholder="Ví dụ: 1.000.000" />
                 </div>
               </div>
 

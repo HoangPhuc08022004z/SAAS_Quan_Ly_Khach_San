@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import Link from "next/link";
 import { FnbItem } from "@/lib/api/types";
 import { api } from "@/lib/api";
@@ -185,12 +186,10 @@ export function FnbActualsView({ initialItems }: FnbActualsViewProps) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="w-28">
-                        <input
-                          type="number"
+                        <NumberInput
                           min={0}
                           value={row.actual_quantity}
-                          onChange={(e) =>
-                            handleQuantityChange(item.id, parseInt(e.target.value) || 0)
+                          onValueChange={(n) => handleQuantityChange(item.id, n)
                           }
                           className="w-full px-2.5 py-1.5 text-xs font-semibold bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
                         />
@@ -198,13 +197,11 @@ export function FnbActualsView({ initialItems }: FnbActualsViewProps) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="w-36">
-                        <input
-                          type="number"
+                        <NumberInput
                           min={0}
                           step={5000}
                           value={row.purchase_price}
-                          onChange={(e) =>
-                            handlePriceChange(item.id, parseInt(e.target.value) || 0)
+                          onValueChange={(n) => handlePriceChange(item.id, n)
                           }
                           className="w-full px-2.5 py-1.5 text-xs font-semibold bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
                         />

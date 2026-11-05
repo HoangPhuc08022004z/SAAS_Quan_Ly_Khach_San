@@ -1,21 +1,26 @@
 "use client";
 
 // FR: FR-C03
-// Tên khách sạn: API thật GET /api/properties/{id}. Giờ nhận/trả phòng: backend chưa có API → vẫn dùng mock.
+// Giờ nhận/trả phòng là một loại chính sách của backend → dùng chung API chính sách (dữ liệu thật):
+// GET /api/policy-formulas, GET/POST /api/properties/{id}/hotel-policies
 import React, { use } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
-import { CheckTimeForm } from "@/features/property-config/components/CheckTimeForm";
-import { api, propertyApi } from "@/lib/api";
+import { PolicyConfig } from "@/features/property-config/components/PolicyConfig";
+import { propertyApi, policyApi } from "@/lib/api";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
 export default function PropertyCheckTimesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, loading, error, reload } = useAsyncData(async () => {
-    const [property, times] = await Promise.all([propertyApi.get(id), api.getCheckTimes(id)]);
-    return { property, times };
+    const [property, formulas, applied] = await Promise.all([
+      propertyApi.get(id),
+      policyApi.formulas(),
+      policyApi.get(id),
+    ]);
+    return { property, formulas, applied: applied.policies ?? [] };
   });
 
   return (
@@ -32,11 +37,13 @@ export default function PropertyCheckTimesPage({ params }: { params: Promise<{ i
 
       <PageHeader
         title={`Giờ Nhận / Trả Phòng: ${data?.property.name ?? ""}`}
-        description="Quy định mốc thời gian nhận phòng và trả phòng tiêu chuẩn hàng ngày cho khách lưu trú."
+        description="Thiết lập giờ nhận phòng và giờ trả phòng tiêu chuẩn của khách sạn."
       />
 
       <AsyncBoundary loading={loading} error={error} onRetry={reload}>
-        {data && <CheckTimeForm propertyId={id} initialTimes={data.times} />}
+        {data && (
+          <PolicyConfig propertyId={id} formulas={data.formulas} initialApplied={data.applied} scope="check" />
+        )}
       </AsyncBoundary>
     </div>
   );

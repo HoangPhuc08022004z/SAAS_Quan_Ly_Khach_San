@@ -3,6 +3,7 @@
 import React from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { NumberInput } from "./NumberInput";
 
 interface NumberStepperProps {
   value: number;
@@ -41,15 +42,14 @@ export function NumberStepper({
       >
         <Minus className="w-3.5 h-3.5" />
       </button>
-      <input
-        type="number"
+      <NumberInput
         value={value}
         min={min}
         max={max}
         disabled={disabled}
-        onChange={(e) => {
-          const val = parseInt(e.target.value, 10);
-          if (!isNaN(val) && val >= min && val <= max) onChange(val);
+        emptyValue={min}
+        onValueChange={(val) => {
+          if (val >= min && val <= max) onChange(val);
         }}
         className="h-9 w-14 text-center text-sm font-semibold tabular-nums border-x border-slate-200 bg-transparent focus:outline-none dark:border-slate-800 dark:text-white"
       />

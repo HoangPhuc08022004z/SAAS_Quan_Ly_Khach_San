@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import { Refund, Reservation } from "@/lib/api/types";
 import { api } from "@/lib/api";
 import { MoneyText } from "@/components/data/MoneyText";
@@ -347,12 +348,11 @@ export function RefundManagementView({
                 <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                   Số tiền hoàn (VND) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="number"
+                <NumberInput
                   min={1000}
                   step={10000}
                   value={manualAmount}
-                  onChange={(e) => setManualAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                  onValueChange={(n) => setManualAmount(Math.max(0, n))}
                   className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
                   required
                 />

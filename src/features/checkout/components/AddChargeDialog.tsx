@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import { PlusCircle, X, Calculator } from "lucide-react";
 import { Folio } from "@/lib/api/types";
 import { MoneyText } from "@/components/data/MoneyText";
@@ -115,11 +116,10 @@ export function AddChargeDialog({
               <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                 Số lượng
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min={1}
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                emptyValue={1} onValueChange={(n) => setQuantity(Math.max(1, n))}
                 className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
@@ -128,12 +128,11 @@ export function AddChargeDialog({
               <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                 Đơn giá (VND)
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min={0}
                 step={5000}
                 value={unitPrice}
-                onChange={(e) => setUnitPrice(Math.max(0, parseInt(e.target.value) || 0))}
+                onValueChange={(n) => setUnitPrice(Math.max(0, n))}
                 className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>

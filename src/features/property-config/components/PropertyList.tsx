@@ -13,6 +13,9 @@ import {
   ArrowRight,
   AlertTriangle,
   Building,
+  Bot,
+  Globe,
+  Utensils,
 } from "lucide-react";
 
 export function PropertyList({
@@ -132,6 +135,28 @@ export function PropertyList({
                 </Link>
 
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/owner/properties/${p.id}/fnb`}
+                    className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white dark:hover:bg-slate-800 dark:text-slate-400 text-xs font-semibold"
+                    title="Thực đơn F&B"
+                  >
+                    <Utensils className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    href={`/p/${p.id}`}
+                    target="_blank"
+                    className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white dark:hover:bg-slate-800 dark:text-slate-400 text-xs font-semibold"
+                    title="Trang đặt phòng công khai"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    href={`/owner/properties/${p.id}/chat`}
+                    className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white dark:hover:bg-slate-800 dark:text-slate-400 text-xs font-semibold"
+                    title="Trợ lý AI của khách sạn"
+                  >
+                    <Bot className="w-4 h-4" />
+                  </Link>
                   <Link
                     href={`/owner/properties/${p.id}`}
                     className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white dark:hover:bg-slate-800 dark:text-slate-400 text-xs font-semibold"

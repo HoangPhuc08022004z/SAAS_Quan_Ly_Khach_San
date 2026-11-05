@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import { useRouter } from "next/navigation";
 import { MoneyText } from "@/components/data/MoneyText";
 import { DateText } from "@/components/data/DateText";
@@ -186,23 +187,21 @@ export function BookingWizard({ guests }: { guests: any[] }) {
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div className="space-y-1.5">
               <label className="font-bold text-slate-700 dark:text-slate-300">Số người lớn</label>
-              <input
-                type="number"
+              <NumberInput
                 min="1"
                 max="10"
                 value={adults}
-                onChange={(e) => setAdults(Number(e.target.value))}
+                onValueChange={(n) => setAdults(n)}
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
               />
             </div>
             <div className="space-y-1.5">
               <label className="font-bold text-slate-700 dark:text-slate-300">Số trẻ em</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 max="10"
                 value={children}
-                onChange={(e) => setChildren(Number(e.target.value))}
+                onValueChange={(n) => setChildren(n)}
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
               />
             </div>

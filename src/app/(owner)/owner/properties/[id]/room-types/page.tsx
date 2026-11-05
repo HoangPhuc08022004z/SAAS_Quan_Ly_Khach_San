@@ -1,13 +1,13 @@
 "use client";
 
 // FR: FR-C05, FR-C13
-// API: GET/POST /api/properties/{id}/room-types, PUT/DELETE .../room-types/{roomTypeId}
+// API: GET/POST /api/properties/{id}/room-types, PUT/DELETE .../room-types/{roomTypeId}, GET/POST/PUT .../room-rates
 import React, { use } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { RoomTypeConfig } from "@/features/property-config/components/RoomTypeConfig";
-import { propertyApi, roomTypeApi } from "@/lib/api";
+import { propertyApi, roomRateApi, roomTypeApi } from "@/lib/api";
 import { toUiRoomType } from "@/lib/api/adapters";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
@@ -15,8 +15,12 @@ import { ArrowLeft } from "lucide-react";
 export default function PropertyRoomTypesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, loading, error, reload } = useAsyncData(async () => {
-    const [property, roomTypes] = await Promise.all([propertyApi.get(id), roomTypeApi.list(id)]);
-    return { property, roomTypes: roomTypes.map((rt) => toUiRoomType(rt, id)) };
+    const [property, roomTypes, rates] = await Promise.all([
+      propertyApi.get(id),
+      roomTypeApi.list(id),
+      roomRateApi.list(id).catch(() => []),
+    ]);
+    return { property, roomTypes: roomTypes.map((rt) => toUiRoomType(rt, id)), rates };
   });
 
   return (
@@ -37,7 +41,7 @@ export default function PropertyRoomTypesPage({ params }: { params: Promise<{ id
       />
 
       <AsyncBoundary loading={loading} error={error} onRetry={reload}>
-        {data && <RoomTypeConfig propertyId={id} initialRoomTypes={data.roomTypes} />}
+        {data && <RoomTypeConfig propertyId={id} initialRoomTypes={data.roomTypes} initialRates={data.rates} />}
       </AsyncBoundary>
     </div>
   );

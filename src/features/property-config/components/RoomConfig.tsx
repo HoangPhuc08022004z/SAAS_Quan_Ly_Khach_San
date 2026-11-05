@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import Link from "next/link";
 import { DataTable, Column } from "@/components/data/DataTable";
 import { StatusBadge } from "@/components/data/StatusBadge";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { roomApi, type ApiRoom, type RoomItemInput } from "@/lib/api";
-import { toUiRoom } from "@/lib/api/adapters";
+import { roomApi, roomTypeApi, type ApiRoom, type ApiRoomType, type RoomItemInput, type RoomTypeInput } from "@/lib/api";
 import { toast } from "sonner";
 import {
   DoorOpen,
@@ -22,7 +22,11 @@ import {
   Sparkles,
 } from "lucide-react";
 
-const toInput = (r: ApiRoom): RoomItemInput => ({
+// Phòng đang soạn trên màn hình (chưa gửi backend); key cục bộ để định danh dòng
+type DraftRoom = RoomItemInput & { key: string };
+
+const toDraft = (r: ApiRoom): DraftRoom => ({
+  key: `room-${r.roomId}`,
   roomId: r.roomId,
   roomNumber: r.roomNumber,
   floor: r.floor,
@@ -32,25 +36,109 @@ const toInput = (r: ApiRoom): RoomItemInput => ({
   roomTypeId: r.roomTypeId,
 });
 
+const toUiDraft = (r: DraftRoom) => ({
+  id: r.key,
+  room_number: r.roomNumber,
+  floor: r.floor,
+  status: r.status,
+  is_available: r.isAvailable ?? true,
+  description: r.description ?? "",
+});
+
+const stripKey = ({ key, ...rest }: DraftRoom): RoomItemInput => rest;
+
+const toTypeInput = (t: ApiRoomType): RoomTypeInput => ({
+  name: t.name,
+  description: t.description ?? undefined,
+  capacity: t.capacity,
+  bedType: t.bedType,
+  numberOfBeds: t.numberOfBeds,
+  numberOfRooms: t.numberOfRooms,
+  image: t.image ?? undefined,
+  amenities: t.amenities ?? [],
+});
+
+let draftSeq = 0;
+const newKey = () => `new-${++draftSeq}`;
+
 export function RoomConfig({
   propertyId,
   roomType,
   initialAllRooms,
+  quotas,
 }: {
   propertyId: string;
   roomType: any;
   initialAllRooms: ApiRoom[];
+  quotas: { roomTypeId: number; name: string; numberOfRooms: number }[];
 }) {
-  // Backend lưu cả danh sách phòng của property trong một request → giữ toàn bộ phòng, chỉ hiển thị phòng của loại này
-  const [allRooms, setAllRooms] = useState<ApiRoom[]>(initialAllRooms);
+  // Chỉ soạn phòng của LOẠI PHÒNG đang mở. Phòng của các loại khác giữ nguyên như backend đang lưu.
   const typeId = Number(roomType.id);
-  const rooms = allRooms.filter((r) => r.roomTypeId === typeId).map(toUiRoom);
+  const [draft, setDraft] = useState<DraftRoom[]>(() =>
+    initialAllRooms.filter((r) => r.roomTypeId === typeId).map(toDraft)
+  );
+  const [otherRooms, setOtherRooms] = useState<RoomItemInput[]>(() =>
+    initialAllRooms.filter((r) => r.roomTypeId !== typeId).map((r) => stripKey(toDraft(r)))
+  );
+  const [savedSnapshot, setSavedSnapshot] = useState(() =>
+    JSON.stringify(initialAllRooms.filter((r) => r.roomTypeId === typeId).map(toDraft))
+  );
+  const rooms = draft.map(toUiDraft);
+  const isDirty = JSON.stringify(draft) !== savedSnapshot;
 
+  const targetCount = Number(roomType.number_of_rooms ?? 0);
+  const currentCount = draft.length;
+  const isMatch = currentCount === targetCount;
+
+  const [isPersisting, setIsPersisting] = useState(false);
   // PUT /api/properties/{propertyId}/rooms/configuration rồi tải lại danh sách
-  const saveAll = async (items: RoomItemInput[]) => {
-    const result = await roomApi.configure(propertyId, items);
-    setAllRooms((await roomApi.configuration(propertyId)).rooms);
-    return result;
+  const persist = async () => {
+    if (!isMatch) {
+      toast.error(
+        `Loại ${roomType.name} cần đúng ${targetCount} phòng (hiện có ${currentCount}). Hãy thêm/bớt phòng hoặc đổi chỉ tiêu ở màn Loại phòng.`
+      );
+      return;
+    }
+    setIsPersisting(true);
+    const adjusted: { id: number; name: string; original: RoomTypeInput }[] = [];
+    try {
+      // Backend yêu cầu MỌI loại phòng đều đủ số phòng khi lưu. Với loại phòng khác chưa cấu hình xong, hạ chỉ tiêu
+      // tạm thời bằng số phòng đang có để chỉ cấu hình riêng loại này, rồi khôi phục chỉ tiêu ngay sau khi lưu.
+      const others = quotas
+        .filter((q) => q.roomTypeId !== typeId)
+        .map((q) => ({ ...q, current: otherRooms.filter((r) => r.roomTypeId === q.roomTypeId).length }))
+        .filter((q) => q.current !== q.numberOfRooms);
+      for (const q of others) {
+        const original = toTypeInput(await roomTypeApi.get(propertyId, q.roomTypeId));
+        await roomTypeApi.update(propertyId, q.roomTypeId, { ...original, numberOfRooms: q.current });
+        adjusted.push({ id: q.roomTypeId, name: q.name, original });
+      }
+
+      const result = await roomApi.configure(propertyId, [...otherRooms, ...draft.map(stripKey)]);
+      const all = (await roomApi.configuration(propertyId)).rooms;
+      const mine = all.filter((r) => r.roomTypeId === typeId).map(toDraft);
+      setDraft(mine);
+      setSavedSnapshot(JSON.stringify(mine));
+      setOtherRooms(all.filter((r) => r.roomTypeId !== typeId).map((r) => stripKey(toDraft(r))));
+      toast.success(result?.message || `Đã lưu cấu hình phòng loại ${roomType.name}!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể lưu cấu hình phòng.");
+    } finally {
+      const failed: string[] = [];
+      for (const a of adjusted) {
+        try {
+          await roomTypeApi.update(propertyId, a.id, a.original);
+        } catch {
+          failed.push(a.name);
+        }
+      }
+      if (failed.length) {
+        toast.error(
+          `Không khôi phục được chỉ tiêu số phòng của loại: ${failed.join(", ")}. Vui lòng kiểm tra lại ở màn Loại phòng.`
+        );
+      }
+      setIsPersisting(false);
+    }
   };
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -60,17 +148,12 @@ export function RoomConfig({
   const [roomNumber, setRoomNumber] = useState("");
   const [floor, setFloor] = useState(1);
   const [description, setDescription] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
 
   // Bulk rooms form
   const [bulkFloor, setBulkFloor] = useState(2);
   const [startRoom, setStartRoom] = useState(1);
   const [endRoom, setEndRoom] = useState(5);
   const [prefix, setPrefix] = useState("");
-
-  const targetCount = roomType.number_of_rooms || 5;
-  const currentCount = rooms.length;
-  const isMatch = currentCount === targetCount;
 
   const handleAddSingle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,32 +162,26 @@ export function RoomConfig({
       toast.error("Vui lòng nhập số phòng.");
       return;
     }
-    if (allRooms.some((r) => r.roomNumber === number)) {
+    if (draft.some((r) => r.roomNumber === number) || otherRooms.some((r) => r.roomNumber === number)) {
       toast.error(`Số phòng ${number} đã tồn tại trong khách sạn.`);
       return;
     }
-    setIsSaving(true);
-    try {
-      await saveAll([
-        ...allRooms.map(toInput),
-        {
-          roomNumber: number,
-          floor: Number(floor),
-          status: "READY",
-          description: description.trim() || undefined,
-          isAvailable: true,
-          roomTypeId: typeId,
-        },
-      ]);
-      setIsAddOpen(false);
-      setRoomNumber("");
-      setDescription("");
-      toast.success(`Đã thêm phòng ${number} thành công!`);
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể thêm phòng mới.");
-    } finally {
-      setIsSaving(false);
-    }
+    setDraft((prev) => [
+      ...prev,
+      {
+        key: newKey(),
+        roomNumber: number,
+        floor: Number(floor),
+        status: "READY",
+        description: description.trim() || undefined,
+        isAvailable: true,
+        roomTypeId: typeId,
+      },
+    ]);
+    setIsAddOpen(false);
+    setRoomNumber("");
+    setDescription("");
+    toast.success(`Đã thêm phòng ${number} vào danh sách. Nhớ bấm "Lưu cấu hình phòng" khi đủ số lượng.`);
   };
 
   const handleBulkCreate = async (e: React.FormEvent) => {
@@ -113,12 +190,13 @@ export function RoomConfig({
       toast.error("Phòng kết thúc phải lớn hơn hoặc bằng phòng bắt đầu.");
       return;
     }
-    const existing = new Set(allRooms.map((r) => r.roomNumber));
-    const created: RoomItemInput[] = [];
+    const existing = new Set([...draft, ...otherRooms].map((r) => r.roomNumber));
+    const created: DraftRoom[] = [];
     for (let n = Number(startRoom); n <= Number(endRoom); n++) {
       const number = `${prefix.trim()}${n}`;
       if (existing.has(number)) continue; // bỏ qua số phòng đã có
       created.push({
+        key: newKey(),
         roomNumber: number,
         floor: Number(bulkFloor),
         status: "READY",
@@ -130,28 +208,17 @@ export function RoomConfig({
       toast.error("Tất cả số phòng trong dải này đã tồn tại.");
       return;
     }
-    setIsSaving(true);
-    try {
-      await saveAll([...allRooms.map(toInput), ...created]);
-      setIsBulkOpen(false);
-      toast.success(`Đã tạo hàng loạt ${created.length} phòng mới!`);
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể tạo hàng loạt phòng.");
-    } finally {
-      setIsSaving(false);
-    }
+    setDraft((prev) => [...prev, ...created]);
+    setIsBulkOpen(false);
+    toast.success(`Đã thêm ${created.length} phòng vào danh sách. Nhớ bấm "Lưu cấu hình phòng" khi đủ số lượng.`);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!roomToDelete) return;
-    try {
-      // Phòng không có trong danh sách gửi lên sẽ bị backend xóa
-      await saveAll(allRooms.filter((r) => String(r.roomId) !== roomToDelete.id).map(toInput));
-      toast.success("Đã xóa phòng thành công.");
-      setRoomToDelete(null);
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể xóa phòng này.");
-    }
+    // Phòng bị bỏ khỏi danh sách sẽ bị backend xóa khi bấm "Lưu cấu hình phòng"
+    setDraft((prev) => prev.filter((r) => r.key !== roomToDelete.id));
+    toast.success("Đã bỏ phòng khỏi danh sách. Bấm \"Lưu cấu hình phòng\" để áp dụng.");
+    setRoomToDelete(null);
   };
 
   const columns: Column<any>[] = [
@@ -274,6 +341,27 @@ export function RoomConfig({
         </div>
       </div>
 
+      <div className="p-4 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-xs space-y-1">
+          <div className="font-bold text-slate-800 dark:text-slate-200">
+            Loại {roomType.name}: {currentCount}/{targetCount} phòng
+            {isDirty ? " (có thay đổi chưa lưu)" : ""}
+          </div>
+          <div className="text-[11px] text-slate-400">
+            Chỉ lưu phòng của loại này. Các loại phòng khác giữ nguyên, không cần cấu hình cùng lúc.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={persist}
+          disabled={!isDirty || isPersisting}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl"
+        >
+          <Save className="w-3.5 h-3.5" />
+          <span>{isPersisting ? "Đang lưu..." : "Lưu cấu hình phòng"}</span>
+        </button>
+      </div>
+
       <DataTable columns={columns} data={rooms} exportFileName={`danh-sach-phong-${roomType.name}`} />
 
       {/* Add Single Room Modal */}
@@ -304,11 +392,10 @@ export function RoomConfig({
 
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-700 dark:text-slate-300">Tầng lầu</label>
-                <input
-                  type="number"
+                <NumberInput
                   min="1"
                   value={floor}
-                  onChange={(e) => setFloor(Number(e.target.value))}
+                  onValueChange={(n) => setFloor(n)}
                   className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                 />
               </div>
@@ -334,10 +421,9 @@ export function RoomConfig({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
                   className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
                 >
-                  {isSaving ? "Đang lưu..." : "Thêm phòng"}
+                  Thêm phòng
                 </button>
               </div>
             </form>
@@ -359,12 +445,11 @@ export function RoomConfig({
             <form onSubmit={handleBulkCreate} className="space-y-4 text-xs">
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-700 dark:text-slate-300">Tầng</label>
-                <input
-                  type="number"
+                <NumberInput
                   min="1"
                   required
                   value={bulkFloor}
-                  onChange={(e) => setBulkFloor(Number(e.target.value))}
+                  onValueChange={(n) => setBulkFloor(n)}
                   className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                 />
               </div>
@@ -372,23 +457,21 @@ export function RoomConfig({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-bold text-slate-700 dark:text-slate-300">Từ số phòng</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     required
                     value={startRoom}
-                    onChange={(e) => setStartRoom(Number(e.target.value))}
+                    onValueChange={(n) => setStartRoom(n)}
                     className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-slate-700 dark:text-slate-300">Đến số phòng</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     required
                     value={endRoom}
-                    onChange={(e) => setEndRoom(Number(e.target.value))}
+                    onValueChange={(n) => setEndRoom(n)}
                     className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
                   />
                 </div>
@@ -419,10 +502,9 @@ export function RoomConfig({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
                   className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
                 >
-                  {isSaving ? "Đang tạo..." : "Xác nhận tạo hàng loạt"}
+                  Xác nhận tạo hàng loạt
                 </button>
               </div>
             </form>

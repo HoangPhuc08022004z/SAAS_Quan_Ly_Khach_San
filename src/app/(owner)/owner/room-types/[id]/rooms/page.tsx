@@ -19,7 +19,7 @@ function RoomsContent({ roomTypeId }: { roomTypeId: string }) {
       roomTypeApi.get(propertyId, roomTypeId),
       roomApi.configuration(propertyId),
     ]);
-    return { roomType: toUiRoomType(roomType, propertyId), rooms: config.rooms };
+    return { roomType: toUiRoomType(roomType, propertyId), rooms: config.rooms, quotas: config.roomTypes ?? [] };
   });
 
   return (
@@ -29,7 +29,7 @@ function RoomsContent({ roomTypeId }: { roomTypeId: string }) {
         description="Khởi tạo danh sách các phòng vật lý thực tế theo tầng và dải số phòng tương ứng."
       />
       <AsyncBoundary loading={loading} error={error} onRetry={reload}>
-        {data && propertyId && <RoomConfig propertyId={propertyId} roomType={data.roomType} initialAllRooms={data.rooms} />}
+        {data && propertyId && <RoomConfig propertyId={propertyId} roomType={data.roomType} initialAllRooms={data.rooms} quotas={data.quotas} />}
       </AsyncBoundary>
     </div>
   );

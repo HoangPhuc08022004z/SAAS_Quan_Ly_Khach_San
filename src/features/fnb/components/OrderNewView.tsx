@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FnbItem, Reservation, Guest } from "@/lib/api/types";
@@ -197,12 +198,11 @@ export function OrderNewView({
                 >
                   <Minus className="w-4 h-4" />
                 </button>
-                <input
-                  type="number"
+                <NumberInput
                   min={1}
                   max={remaining}
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.min(remaining, Math.max(1, parseInt(e.target.value) || 1)))}
+                  emptyValue={1} onValueChange={(n) => setQuantity(Math.min(remaining, Math.max(1, n)))}
                   className="w-16 text-center text-sm font-bold bg-transparent focus:outline-none"
                 />
                 <button

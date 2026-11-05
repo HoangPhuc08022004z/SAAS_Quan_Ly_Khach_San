@@ -40,7 +40,7 @@ export default function PropertyPoliciesPage({ params }: { params: Promise<{ id:
       />
 
       <AsyncBoundary loading={loading} error={error} onRetry={reload}>
-        {data && <PolicyConfig propertyId={id} formulas={data.formulas} initialApplied={data.applied} />}
+        {data && <PolicyConfig propertyId={id} formulas={data.formulas} initialApplied={data.applied} scope="policy" />}
       </AsyncBoundary>
     </div>
   );

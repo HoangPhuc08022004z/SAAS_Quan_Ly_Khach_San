@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import { useRouter } from "next/navigation";
 import { Plan } from "@/lib/api/types";
 import { createSubscriptionPlan, updateSubscriptionPlan } from "@/lib/api";
@@ -95,11 +96,10 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
 
         <div className="grid grid-cols-2 gap-2">
           <FormField label="Thời hạn" required>
-            <input
-              type="number"
+            <NumberInput
               min={1}
               value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value, 10) || 1)}
+              emptyValue={1} onValueChange={(n) => setDuration(n)}
               className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
             />
           </FormField>
@@ -117,41 +117,37 @@ export function PlanForm({ initialPlan }: PlanFormProps) {
         </div>
 
         <FormField label="Giới hạn số khách sạn (max_properties)" required>
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={maxProperties}
-            onChange={(e) => setMaxProperties(parseInt(e.target.value, 10) || 1)}
+            emptyValue={1} onValueChange={(n) => setMaxProperties(n)}
             className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           />
         </FormField>
 
         <FormField label="Giới hạn số phòng (max_rooms)" required>
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={maxRooms}
-            onChange={(e) => setMaxRooms(parseInt(e.target.value, 10) || 1)}
+            emptyValue={1} onValueChange={(n) => setMaxRooms(n)}
             className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           />
         </FormField>
 
         <FormField label="Số nhân viên tối đa (max_users)" required>
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={maxUsers}
-            onChange={(e) => setMaxUsers(parseInt(e.target.value, 10) || 1)}
+            emptyValue={1} onValueChange={(n) => setMaxUsers(n)}
             className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           />
         </FormField>
 
         <FormField label="Dung lượng lưu trữ (MB)" hint={`${(storageMB / 1024).toFixed(1)} GB`} required>
-          <input
-            type="number"
+          <NumberInput
             min={100}
             value={storageMB}
-            onChange={(e) => setStorageMB(parseInt(e.target.value, 10) || 1024)}
+            emptyValue={1024} onValueChange={(n) => setStorageMB(n)}
             className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           />
         </FormField>

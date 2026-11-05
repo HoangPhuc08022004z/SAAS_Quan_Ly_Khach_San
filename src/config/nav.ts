@@ -15,6 +15,7 @@ export const ADMIN_NAV: NavItem[] = [
   { title: "Hộp thư hỗ trợ", href: "/admin/support", icon: "Headphones" },
   { title: "Knowledge Base", href: "/admin/knowledge-base", icon: "FileText" },
   { title: "Nhật ký tác vụ", href: "/admin/jobs", icon: "Clock" },
+  { title: "Hồ sơ cá nhân", href: "/admin/profile", icon: "UserCircle" },
 ];
 
 export const OWNER_NAV: NavItem[] = [
@@ -24,20 +25,23 @@ export const OWNER_NAV: NavItem[] = [
   { title: "Khách sạn & Cấu hình", href: "/owner/properties", icon: "Hotel" },
   { title: "Báo cáo chuỗi", href: "/owner/reports", icon: "BarChart3" },
   { title: "Trợ giúp & Hỗ trợ", href: "/owner/support", icon: "LifeBuoy" },
+  { title: "Hồ sơ cá nhân", href: "/owner/profile", icon: "UserCircle" },
 ];
 
 export const PMS_NAV: NavItem[] = [
   { title: "Bảng điều khiển", href: "/pms", icon: "LayoutDashboard" },
   { title: "Sơ đồ & Lịch phòng", href: "/pms/rooms", icon: "CalendarDays", permission: "ROOM_VIEW" },
+  { title: "Tìm phòng trống", href: "/pms/availability", icon: "Search", permission: "RESERVATION_CREATE" },
   { title: "Danh sách đặt phòng", href: "/pms/reservations", icon: "BookmarkCheck", permission: "RESERVATION_VIEW" },
-  { title: "Lễ tân Check-in", href: "/pms/checkin", icon: "UserCheck", permission: "CHECKIN_PERFORM" },
-  { title: "Thu ngân Check-out", href: "/pms/checkout", icon: "LogOut", permission: "CHECKOUT_PERFORM" },
-  { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HK_VIEW" },
-  { title: "Dịch vụ F&B", href: "/pms/fnb/menu", icon: "Utensils", permission: "FNB_VIEW" },
-  { title: "Dịch vụ khách sạn", href: "/pms/services", icon: "ConciergeBell", permission: "SERVICE_VIEW" },
+  { title: "Lễ tân Check-in", href: "/pms/checkin", icon: "UserCheck", permission: "CHECKIN_EXECUTE" },
+  { title: "Thu ngân Check-out", href: "/pms/checkout", icon: "LogOut", permission: "CHECKOUT_VIEW" },
+  { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HOUSEKEEPING_VIEW" },
+  { title: "Dịch vụ F&B", href: "/pms/fnb/menu", icon: "Utensils", permission: "MENU_VIEW" },
+  { title: "Dịch vụ khách sạn", href: "/pms/services", icon: "ConciergeBell", permission: "GUEST_SERVICE_CREATE" },
   { title: "Hủy & Hoàn tiền", href: "/pms/cancellations", icon: "RotateCcw", permission: "RESERVATION_CANCEL" },
-  { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "RESERVATION_NOSHOW" },
-  { title: "Chốt ngày (Night Audit)", href: "/pms/night-audit", icon: "Moon", permission: "AUDIT_VIEW" },
-  { title: "Báo cáo vận hành", href: "/pms/reports", icon: "TrendingUp", permission: "REPORT_APPROVE" },
-  { title: "Trợ lý Chatbot AI", href: "/pms/chat", icon: "Bot", permission: "CHAT_STAFF" },
+  { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "NO_SHOW_VIEW" },
+  { title: "Chốt ngày (Night Audit)", href: "/pms/night-audit", icon: "Moon", permission: "NIGHT_AUDIT_VIEW" },
+  { title: "Báo cáo vận hành", href: "/pms/reports", icon: "TrendingUp", permission: "PROPERTY_REPORT_CONFIRM" },
+  { title: "Trợ lý Chatbot AI", href: "/pms/chat", icon: "Bot", permission: "CHATBOT_HOTEL_INFO" },
+  { title: "Hồ sơ cá nhân", href: "/pms/profile", icon: "UserCircle" },
 ];

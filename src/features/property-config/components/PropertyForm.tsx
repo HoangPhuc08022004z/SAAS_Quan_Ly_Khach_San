@@ -139,6 +139,7 @@ export function PropertyForm({
               type="text"
               required
               value={name}
+              maxLength={150}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ví dụ: Khách Sạn ABC Grand Luxury"
               className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
@@ -153,6 +154,7 @@ export function PropertyForm({
               type="text"
               required
               value={address}
+              maxLength={255}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Ví dụ: 123 Đường Trần Phú, Quận Ba Đình, Hà Nội"
               className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
@@ -168,6 +170,7 @@ export function PropertyForm({
                 type="text"
                 required
                 value={phone}
+              maxLength={20}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="024 3828 9999"
                 className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
@@ -182,6 +185,7 @@ export function PropertyForm({
                 type="email"
                 required
                 value={email}
+              maxLength={255}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="booking@hotelabc.vn"
                 className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"

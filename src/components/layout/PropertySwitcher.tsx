@@ -1,18 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Building2, ChevronDown, Check } from "lucide-react";
 import { useSessionStore } from "@/lib/auth/session-store";
-import { getDb } from "@/mocks/db";
+import { propertyApi } from "@/lib/api";
 
-export function PropertySwitcher() {
-  const { currentPropertyId, setCurrentPropertyId, tenant } = useSessionStore();
+interface SwitcherProperty {
+  id: string;
+  name: string;
+}
+
+export function PropertySwitcher({ portal }: { portal: "owner" | "pms" }) {
+  const { currentPropertyId, setCurrentPropertyId, property } = useSessionStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [ownerProperties, setOwnerProperties] = useState<SwitcherProperty[]>([]);
 
-  const db = getDb();
-  const tenantId = tenant?.id || "tenant_abc";
-  const properties = db.properties.filter((p: any) => p.tenant_id === tenantId);
-  const currentProp = properties.find((p: any) => p.id === currentPropertyId) || properties[0];
+  // Owner: lấy danh sách khách sạn thật (GET /api/properties). Nhân viên PMS chỉ thuộc một khách sạn (lấy từ phiên đăng nhập).
+  useEffect(() => {
+    if (portal !== "owner") return;
+    let alive = true;
+    propertyApi
+      .list()
+      .then((list) => {
+        if (alive) setOwnerProperties(list.map((p) => ({ id: String(p.propertyId), name: p.name })));
+      })
+      .catch(() => {
+        if (alive) setOwnerProperties([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [portal]);
+
+  const properties: SwitcherProperty[] =
+    portal === "owner" ? ownerProperties : property ? [{ id: property.id, name: property.name }] : [];
+  const currentProp = properties.find((p) => p.id === currentPropertyId) || properties[0];
 
   if (!currentProp) return null;
 
@@ -34,7 +56,7 @@ export function PropertySwitcher() {
             Chọn khách sạn vận hành
           </div>
           <div className="space-y-0.5 mt-1">
-            {properties.map((p: any) => {
+            {properties.map((p) => {
               const isSelected = p.id === currentProp.id;
               return (
                 <button

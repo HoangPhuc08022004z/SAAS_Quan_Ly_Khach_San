@@ -1,21 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginFormData } from "../schemas/auth.schema";
-import { api } from "@/lib/api";
+import { pmsAuthApi, saasApi } from "@/lib/api";
 import { useSessionStore } from "@/lib/auth/session-store";
+import { useRedirectIfSignedIn } from "@/lib/auth/use-redirect-if-signed-in";
 import { FormField } from "@/components/forms/FormField";
 import { toast } from "sonner";
 import { ArrowRight, Loader2, Hotel, AlertOctagon } from "lucide-react";
 
 export function PmsLoginForm() {
   const router = useRouter();
+  useRedirectIfSignedIn("staff");
   const [isLoading, setIsLoading] = useState(false);
-  const [lockError, setLockError] = useState<string | null>(null);
+  const [lockError, setLockError] = useState<{ title: string; message: string } | null>(null);
   const setPmsSession = useSessionStore((s) => s.setPmsSession);
 
   const {
@@ -34,21 +35,57 @@ export function PmsLoginForm() {
     setIsLoading(true);
     setLockError(null);
     try {
-      const res = await api.pmsLogin(data);
+      // POST /api/v1/pms/auth/login — token nhân viên PMS (claim actor_type=PMS_EMPLOYEE)
+      const res = await pmsAuthApi.login(data);
+      saasApi.setToken(res.accessToken);
+
+      const now = new Date().toISOString();
+      const roleName = res.user.role;
       setPmsSession({
-        user: res.user,
-        role: res.role,
-        permissions: res.permissions,
-        property: res.property,
+        user: {
+          id: String(res.user.userId),
+          tenant_id: String(res.user.tenantId),
+          property_id: String(res.user.propertyId),
+          role_id: roleName,
+          email: res.user.email,
+          full_name: res.user.fullName,
+          phone: "",
+          status: "ACTIVE",
+        },
+        role: { id: roleName, name: roleName, code: roleName as any, description: "" },
+        permissions: res.permissions ?? [],
+        property: {
+          id: String(res.user.propertyId),
+          tenant_id: String(res.user.tenantId),
+          name: res.user.propertyName,
+          address: "",
+          phone: "",
+          email: "",
+          description: "",
+          image_url: "",
+          status: "ACTIVE",
+          created_at: now,
+          updated_at: now,
+        },
       });
 
-      toast.success(`Đăng nhập thành công! Chào ${res.user.full_name} (${res.role.name})`);
+      toast.success(`Đăng nhập thành công! Chào ${res.user.fullName} (${roleName})`);
       router.push("/pms");
     } catch (err: any) {
-      if (err?.code === "TENANT_LOCKED") {
-        setLockError(err.message);
+      saasApi.setToken(null);
+      const msg = String(err?.message || "");
+      const plain = msg.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase();
+      if (/mat khau|email hoac|401/.test(plain)) {
+        toast.error("Email hoặc mật khẩu không chính xác.");
+      } else if (/vai tro|role|owner/.test(plain)) {
+        // Nhân viên bị gán vai trò OWNER hoặc vai trò đã ngừng hoạt động
+        setLockError({ title: "Vai trò của tài khoản không được phép đăng nhập PMS", message: msg });
+      } else if (/nhan vien|user|tai khoan/.test(plain)) {
+        setLockError({ title: "Tài khoản nhân viên không hoạt động", message: msg });
+      } else if (/tenant|subscription|goi|plan|het han|property|khach san/.test(plain)) {
+        setLockError({ title: "Khách sạn / gói thuê bao đang bị tạm khóa vận hành", message: msg });
       } else {
-        toast.error(err?.message || "Đăng nhập thất bại. Kiểm tra lại thông tin.");
+        toast.error(msg || "Đăng nhập thất bại.");
       }
     } finally {
       setIsLoading(false);
@@ -61,8 +98,8 @@ export function PmsLoginForm() {
         <div className="flex items-start gap-3 p-3.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-300 text-xs">
           <AlertOctagon className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
           <div className="space-y-1">
-            <h5 className="font-bold">Khách sạn đang bị tạm khóa vận hành</h5>
-            <p className="leading-relaxed">{lockError}</p>
+            <h5 className="font-bold">{lockError.title}</h5>
+            <p className="leading-relaxed">Backend trả về: {lockError.message}</p>
           </div>
         </div>
       )}
@@ -96,14 +133,6 @@ export function PmsLoginForm() {
         </button>
       </form>
 
-      <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 text-center">
-        <Link
-          href="/login"
-          className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-        >
-          ← Quay lại đăng nhập nền tảng (Owner / Admin)
-        </Link>
-      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { NumberInput } from "@/components/forms/NumberInput";
 import { Edit3, X, AlertTriangle } from "lucide-react";
 import { DailyStatistics } from "@/lib/api/types";
 import { api } from "@/lib/api";
@@ -109,11 +110,10 @@ export function AdjustStatsDialog({
             <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
               Giá trị mới <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="number"
+            <NumberInput
               min={0}
               value={newValue}
-              onChange={(e) => setNewValue(parseInt(e.target.value) || 0)}
+              onValueChange={(n) => setNewValue(n)}
               className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none font-bold"
               required
             />

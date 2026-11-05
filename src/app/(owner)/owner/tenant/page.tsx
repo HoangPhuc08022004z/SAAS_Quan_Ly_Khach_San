@@ -1,22 +1,25 @@
-// FR: FR-S12
-// Service: api.getMyTenant, api.updateMyTenant
+"use client";
+
+// Thông tin tổ chức — dữ liệu thật: GET /api/v1/user/profile (backend chưa có API sửa tổ chức)
 import React from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { TenantProfileView } from "@/features/tenant/components/TenantProfileView";
-import { api } from "@/lib/api";
+import { saasApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 
-export const dynamic = "force-dynamic";
-
-export default async function OwnerTenantProfilePage() {
-  const tenant = await api.getMyTenant();
+export default function OwnerTenantProfilePage() {
+  const { data, loading, error, reload } = useAsyncData(() => saasApi.profile.get());
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Thông Tin Tổ Chức / Khách Hàng (Tenant)"
-        description="Quản lý hồ sơ pháp nhân, thương hiệu chuỗi khách sạn và thông tin giới hạn tài nguyên."
+        description="Hồ sơ tổ chức và trạng thái thuê bao của bạn."
       />
-      <TenantProfileView initialTenant={tenant} />
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}>
+        {data && <TenantProfileView profile={data} />}
+      </AsyncBoundary>
     </div>
   );
 }

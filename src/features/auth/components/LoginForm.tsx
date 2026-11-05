@@ -9,12 +9,14 @@ import { loginSchema, LoginFormData } from "../schemas/auth.schema";
 import { loginUser, resolveAccountRole, saasApi } from "@/lib/api";
 import { getOwnerLanding } from "@/lib/auth/owner-landing";
 import { useSessionStore } from "@/lib/auth/session-store";
+import { useRedirectIfSignedIn } from "@/lib/auth/use-redirect-if-signed-in";
 import { FormField } from "@/components/forms/FormField";
 import { toast } from "sonner";
 import { ArrowRight, Loader2, Hotel } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
+  useRedirectIfSignedIn("platform");
   const [isLoading, setIsLoading] = useState(false);
   const setAccountSession = useSessionStore((s) => s.setAccountSession);
 

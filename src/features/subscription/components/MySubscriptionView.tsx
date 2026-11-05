@@ -37,7 +37,7 @@ export function MySubscriptionView({
 }: {
   profile: UserProfile;
   plans: Plan[];
-  usage: any;
+  usage: { properties: number; rooms: number; users: number } | null;
   reminders: any[];
   onChanged: () => void;
 }) {
@@ -256,29 +256,23 @@ export function MySubscriptionView({
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-2">
-          <UsageMeter
-            label="Số Khách Sạn (Properties)"
-            current={usage?.properties?.current || 1}
-            max={usage?.properties?.max || 3}
-          />
-          <UsageMeter
-            label="Tổng Số Phòng (Rooms)"
-            current={usage?.rooms?.current || 22}
-            max={usage?.rooms?.max || 50}
-          />
-          <UsageMeter
-            label="Tài Khoản Nhân Viên (Users)"
-            current={usage?.users?.current || 3}
-            max={usage?.users?.max || 10}
-          />
-          <UsageMeter
-            label="Lưu Trữ Tệp (Storage)"
-            current={usage?.storage?.current || 157286400}
-            max={usage?.storage?.max || 5368709120}
-            formatValue={(b) => formatBytes(b)}
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          {[
+            { label: "Số khách sạn (Properties)", value: usage?.properties },
+            { label: "Tổng số phòng (Rooms)", value: usage?.rooms },
+            { label: "Tài khoản nhân viên (Users)", value: usage?.users },
+          ].map((item) => (
+            <div key={item.label} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40">
+              <div className="text-[11px] font-semibold text-slate-400">{item.label}</div>
+              <div className="mt-1 text-2xl font-black text-slate-900 dark:text-white">
+                {item.value ?? "—"}
+              </div>
+            </div>
+          ))}
         </div>
+        <p className="text-[11px] text-slate-400">
+          Số liệu đếm từ dữ liệu thật của bạn. Giới hạn tối đa của từng gói xem ở bảng gói thuê bao.
+        </p>
       </div>
 
       {/* Reminders List */}
