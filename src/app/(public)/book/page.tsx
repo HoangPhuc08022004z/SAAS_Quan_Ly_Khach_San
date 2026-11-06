@@ -9,5 +9,6 @@ export default function BookingPortalPage() {
     .split(",")
     .map((s) => s.trim())
     .filter((s) => /^\d+$/.test(s));
-  return <CustomerPortal featuredIds={featuredIds} />;
+  const scanMax = Number(process.env.NEXT_PUBLIC_PROPERTY_SCAN_MAX ?? 40) || 40;
+  return <CustomerPortal featuredIds={featuredIds} scanMax={scanMax} />;
 }

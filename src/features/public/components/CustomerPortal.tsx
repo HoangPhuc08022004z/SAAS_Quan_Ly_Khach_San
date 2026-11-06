@@ -14,8 +14,10 @@ const inputCls =
 type Featured = { id: string; data?: AvailableRoomsResponse; error?: string };
 
 /** Khách sạn nổi bật: tên, số phòng trống và giá thấp nhất hôm nay đọc từ GET /api/public/properties/{id}/available-rooms */
-function FeaturedHotels({ ids }: { ids: string[] }) {
-  const [items, setItems] = useState<Featured[]>(ids.map((id) => ({ id })));
+function FeaturedHotels({ featured, scanMax }: { featured: string[]; scanMax: number }) {
+  // Backend chưa có API danh sách khách sạn công khai → dò mã 1..scanMax qua API phòng trống, mã nào trả 200 thì hiện
+  const ids = Array.from(new Set([...featured, ...Array.from({ length: scanMax }, (_, i) => String(i + 1))]));
+  const [items, setItems] = useState<Featured[]>([]);
   const [loading, setLoading] = useState(ids.length > 0);
 
   useEffect(() => {
@@ -31,7 +33,9 @@ function FeaturedHotels({ ids }: { ids: string[] }) {
           .then((data): Featured => ({ id, data }))
           .catch((e: any): Featured => ({ id, error: e?.message || "Không tải được." }))
       )
-    ).then((res) => {
+    ).then((all) => {
+      // Mã không tồn tại (do dò) thì bỏ qua; chỉ giữ mã khai trong .env nếu lỗi để còn báo
+      const res = all.filter((r) => r.data || featured.includes(r.id));
       if (alive) {
         setItems(res);
         setLoading(false);
@@ -42,13 +46,15 @@ function FeaturedHotels({ ids }: { ids: string[] }) {
     };
   }, [ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (ids.length === 0) return null;
   if (loading)
     return (
       <p className="flex items-center justify-center gap-2 text-xs text-slate-400">
         <Loader2 className="w-4 h-4 animate-spin" /> Đang tải khách sạn...
       </p>
     );
+
+  if (items.length === 0)
+    return <p className="text-center text-xs text-slate-400">Chưa có khách sạn nào mở đặt phòng. Bạn vẫn có thể nhập mã khách sạn ở trên.</p>;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -87,7 +93,7 @@ function FeaturedHotels({ ids }: { ids: string[] }) {
   );
 }
 
-export function CustomerPortal({ featuredIds }: { featuredIds: string[] }) {
+export function CustomerPortal({ featuredIds, scanMax = 40 }: { featuredIds: string[]; scanMax?: number }) {
   const router = useRouter();
   const [hotelCode, setHotelCode] = useState("");
   const [code, setCode] = useState("");
@@ -159,12 +165,10 @@ export function CustomerPortal({ featuredIds }: { featuredIds: string[] }) {
           </form>
         </div>
 
-        {featuredIds.length > 0 && (
-          <section className="space-y-4">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><BedDouble className="w-5 h-5 text-blue-600" /> Khách sạn đang mở đặt phòng</h2>
-            <FeaturedHotels ids={featuredIds} />
-          </section>
-        )}
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><BedDouble className="w-5 h-5 text-blue-600" /> Khách sạn đang mở đặt phòng</h2>
+          <FeaturedHotels featured={featuredIds} scanMax={scanMax} />
+        </section>
       </main>
     </div>
   );
