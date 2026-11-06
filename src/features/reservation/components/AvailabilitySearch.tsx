@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Search, Loader2, BedDouble, Users, DoorOpen, ExternalLink } from "lucide-react";
+import { Search, Loader2, BedDouble, Users, DoorOpen } from "lucide-react";
 import { toast } from "sonner";
 import { NumberInput } from "@/components/forms/NumberInput";
-import { publicApi, type AvailableRoomsResponse } from "@/lib/api";
+import { publicApi, type AvailableRoomType, type AvailableRoomsResponse } from "@/lib/api";
+import { RoomBookingDialog } from "./RoomBookingDialog";
 import { useSession } from "@/lib/auth/use-session";
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -30,6 +30,7 @@ export function AvailabilitySearch() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AvailableRoomsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [booking, setBooking] = useState<{ type: AvailableRoomType; roomId?: number } | null>(null);
 
   const onCheckIn = (v: string) => {
     setCheckIn(v);
@@ -44,12 +45,16 @@ export function AvailabilitySearch() {
     if (checkOut <= checkIn) return toast.error("Ngày trả phòng phải sau ngày nhận phòng.");
     if (guestCount < 1) return toast.error("Số khách phải lớn hơn 0.");
 
+    await runSearch(true);
+  };
+
+  const runSearch = async (resetFilter: boolean) => {
     setLoading(true);
     setError(null);
     try {
       const res = await publicApi.availableRooms(propertyId, { checkInDate: checkIn, checkOutDate: checkOut, guestCount });
       setResult(res);
-      setTypeId("ALL");
+      if (resetFilter) setTypeId("ALL");
     } catch (err: any) {
       setResult(null);
       setError(err?.message || "Không tìm được phòng trống.");
@@ -114,13 +119,6 @@ export function AvailabilitySearch() {
                 ))}
               </select>
             )}
-            <Link
-              href={`/p/${result.propertyId}`}
-              target="_blank"
-              className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"
-            >
-              Đặt phòng cho khách <ExternalLink className="w-3 h-3" />
-            </Link>
           </div>
 
           {types.length === 0 ? (
@@ -163,18 +161,46 @@ export function AvailabilitySearch() {
                       <p className="font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center gap-1"><DoorOpen className="w-3.5 h-3.5" />Phòng trống</p>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {t.rooms.map((r) => (
-                          <span key={r.roomId} title={r.description ?? undefined} className="px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 font-semibold dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          <button
+                            key={r.roomId}
+                            type="button"
+                            onClick={() => setBooking({ type: t, roomId: r.roomId })}
+                            title={r.description ?? "Bấm để đặt phòng này"}
+                            className="px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                          >
                             {r.roomNumber} · T{r.floor}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setBooking({ type: t })}
+                      className="w-full py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
+                    >
+                      Xem phòng &amp; đặt phòng
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+      )}
+
+      {booking && result && (
+        <RoomBookingDialog
+          key={`${booking.type.roomTypeId}-${booking.roomId ?? "all"}`}
+          propertyId={result.propertyId}
+          type={booking.type}
+          checkIn={result.checkInDate}
+          checkOut={result.checkOutDate}
+          nights={nights}
+          guestCount={result.guestCount}
+          initialRoomId={booking.roomId}
+          onClose={() => setBooking(null)}
+          onBooked={() => runSearch(false)}
+        />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { clearReservationPayment } from "@/lib/payment-return";
 import React, { useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/data/StatusBadge";
@@ -79,6 +80,7 @@ export function MySubscriptionView({
           // sessionStorage không khả dụng → trang kết quả dùng cách kiểm tra mặc định
         }
         toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+        clearReservationPayment(); // Owner thanh toán thuê bao: không để dấu vết đặt cọc của khách làm lệch trang quay về
         window.location.href = res.paymentUrl;
         return;
       }
@@ -111,6 +113,7 @@ export function MySubscriptionView({
       const res = await retryInitialPayment();
       if (res?.checkoutUrl) {
         toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+        clearReservationPayment(); // Owner thanh toán thuê bao: không để dấu vết đặt cọc của khách làm lệch trang quay về
         window.location.href = res.checkoutUrl;
         return;
       }

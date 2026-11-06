@@ -10,6 +10,8 @@ import {
   type ReservationCreated,
 } from "@/lib/api";
 import { MoneyText } from "@/components/data/MoneyText";
+import { markReservationPayment } from "@/lib/payment-return";
+import { PaymentCountdown } from "@/features/public/components/PaymentCountdown";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { Users, Bed, Search, Loader2, Hotel, CheckCircle2, CalendarClock, ExternalLink } from "lucide-react";
 
@@ -163,6 +165,7 @@ export function PropertyGuestView({ propertyId }: { propertyId: string }) {
         payment.reservationPaymentId,
         contact
       );
+      markReservationPayment({ code: reservation.reservationCode, ...contact });
       window.location.href = session.checkoutUrl;
     } catch (err: any) {
       toast.error(err?.message || "Không thể khởi tạo thanh toán.");
@@ -429,6 +432,7 @@ export function PropertyGuestView({ propertyId }: { propertyId: string }) {
                     ? new Date(reservation.paymentExpiresAt).toLocaleString("vi-VN")
                     : "—"}
                 </div>
+                <PaymentCountdown expiresAt={reservation.paymentExpiresAt} />
               </div>
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-300">

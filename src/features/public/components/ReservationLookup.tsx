@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { markReservationPayment, clearReservationPayment } from "@/lib/payment-return";
+import { PaymentCountdown } from "@/features/public/components/PaymentCountdown";
 import { publicApi, type GuestContact, type ReservationDetail } from "@/lib/api";
 import { MoneyText } from "@/components/data/MoneyText";
 import { Loader2, Search, CalendarClock } from "lucide-react";
@@ -37,6 +39,9 @@ export function ReservationLookup() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
+  // Quay về từ Stripe: success → theo dõi đến khi backend (webhook) xác nhận cọc; cancel → cho phép thanh toán lại
+  const returned = params.get("payment");
+  const [polls, setPolls] = useState(0);
 
   const contact = (): GuestContact => ({ email: email.trim() || undefined, phone: phone.trim() || undefined });
 
@@ -74,12 +79,34 @@ export function ReservationLookup() {
     try {
       const payment = await publicApi.createPayment(data.reservationCode, contact());
       const session = await publicApi.createCheckoutSession(data.reservationCode, payment.reservationPaymentId, contact());
+      markReservationPayment({ code: data.reservationCode, ...contact() });
       window.location.href = session.checkoutUrl;
     } catch (err: any) {
       toast.error(err?.message || "Không thể khởi tạo thanh toán.");
       setPaying(false);
     }
   };
+
+  // Webhook Stripe có thể đến chậm vài giây: tự làm mới tối đa ~60 giây
+  useEffect(() => {
+    if (returned !== "success" || !data || data.status !== "PENDING_PAYMENT" || polls >= 20) return;
+    const id = setTimeout(async () => {
+      try {
+        setData(await publicApi.getReservation(data.reservationCode, contact()));
+      } catch {
+        // thử lại ở lần sau
+      }
+      setPolls((n) => n + 1);
+    }, 3000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returned, data, polls]);
+
+  useEffect(() => {
+    if (data && (data.status === "CONFIRMED" || returned === "cancel")) clearReservationPayment();
+  }, [data, returned]);
+
+  const waitingConfirm = returned === "success" && data?.status === "PENDING_PAYMENT";
 
   const canPay = data?.status === "PENDING_PAYMENT" && !data.paymentHoldExpired;
 
@@ -89,6 +116,24 @@ export function ReservationLookup() {
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Tra cứu đặt phòng</h1>
         <p className="text-xs text-slate-500 mt-1">Nhập mã đặt phòng và email hoặc số điện thoại đã dùng khi đặt.</p>
       </div>
+
+      {returned === "success" && data?.status === "CONFIRMED" && (
+        <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-semibold dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-300">
+          Thanh toán đặt cọc thành công! Đặt phòng của bạn đã được xác nhận.
+        </div>
+      )}
+      {waitingConfirm && (
+        <div className="p-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-xs dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300">
+          {polls < 20
+            ? "Đang chờ hệ thống xác nhận khoản đặt cọc từ cổng thanh toán, vui lòng giữ trang này trong giây lát..."
+            : "Chưa nhận được xác nhận. Nếu bạn đã thanh toán, vui lòng tải lại trang sau ít phút hoặc liên hệ khách sạn kèm mã đặt phòng."}
+        </div>
+      )}
+      {returned === "cancel" && data?.status === "PENDING_PAYMENT" && (
+        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-300">
+          Bạn đã hủy thanh toán. Phòng vẫn được giữ đến hết thời hạn, bạn có thể bấm "Thanh toán đặt cọc" để thử lại.
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -214,6 +259,7 @@ export function ReservationLookup() {
                 <p className="text-[11px] text-amber-600 flex items-center gap-1">
                   <CalendarClock className="w-3 h-3" />
                   Giữ phòng đến {new Date(data.paymentExpiresAt).toLocaleString("vi-VN")}
+                  <PaymentCountdown expiresAt={data.paymentExpiresAt} />
                 </p>
               )}
               <button

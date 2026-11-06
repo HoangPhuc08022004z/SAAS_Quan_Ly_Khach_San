@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Owner hủy thanh toán trên Stripe → quay lại trang thuê bao để có thể bấm thanh toán lại.
+// Người dùng hủy thanh toán trên Stripe → /payments/return đưa về đúng nơi để thanh toán lại.
 export function GET(req: NextRequest) {
-  return NextResponse.redirect(new URL("/owner/subscription", req.url));
+  return NextResponse.redirect(new URL("/payments/return?result=cancel", req.url));
 }

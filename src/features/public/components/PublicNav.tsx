@@ -19,8 +19,8 @@ export function PublicHeader() {
         <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600 dark:text-slate-300">
           <a href="#features" className="hover:text-blue-600 transition-colors">Tính năng</a>
           <a href="#pricing" className="hover:text-blue-600 transition-colors">Bảng giá gói</a>
-          <a href="#demo-hotels" className="hover:text-blue-600 transition-colors">Khách sạn mẫu</a>
-          <Link href="/dev/reset" className="text-emerald-600 hover:text-emerald-700">Dữ liệu mẫu</Link>
+          <Link href="/book" className="hover:text-blue-600 transition-colors">Đặt phòng</Link>
+          <Link href="/p/reservation" className="hover:text-blue-600 transition-colors">Tra cứu đặt phòng</Link>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">

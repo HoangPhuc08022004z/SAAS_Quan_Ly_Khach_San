@@ -1,5 +1,6 @@
 "use client";
 
+import { clearReservationPayment } from "@/lib/payment-return";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchUserProfile, retryInitialPayment } from "@/lib/api";
@@ -23,6 +24,7 @@ export function PaymentCheckout({ profile }: { profile: UserProfile }) {
       const res = await retryInitialPayment();
       if (res?.checkoutUrl) {
         toast.success("Đang chuyển hướng sang cổng thanh toán Stripe...");
+        clearReservationPayment(); // Owner thanh toán thuê bao: không để dấu vết đặt cọc của khách làm lệch trang quay về
         window.location.href = res.checkoutUrl;
         return;
       }
