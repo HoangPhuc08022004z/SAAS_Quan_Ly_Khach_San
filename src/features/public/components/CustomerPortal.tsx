@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Hotel, Search, ArrowRight, Loader2, CalendarSearch, BedDouble } from "lucide-react";
+import { Hotel, Search, ArrowRight, Loader2, CalendarSearch, BedDouble, MessageSquare } from "lucide-react";
 import { publicApi, type AvailableRoomsResponse } from "@/lib/api";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const vnd = (n: number) => `${new Intl.NumberFormat("vi-VN").format(n)}đ`;
@@ -14,7 +15,7 @@ const inputCls =
 type Featured = { id: string; data?: AvailableRoomsResponse; error?: string };
 
 /** Khách sạn nổi bật: tên, số phòng trống và giá thấp nhất hôm nay đọc từ GET /api/public/properties/{id}/available-rooms */
-function FeaturedHotels({ featured, scanMax }: { featured: string[]; scanMax: number }) {
+function FeaturedHotels({ featured, scanMax, onChat }: { featured: string[]; scanMax: number; onChat: (id: string, name: string) => void }) {
   // Backend chưa có API danh sách khách sạn công khai → dò mã 1..scanMax qua API phòng trống, mã nào trả 200 thì hiện
   const ids = Array.from(new Set([...featured, ...Array.from({ length: scanMax }, (_, i) => String(i + 1))]));
   const [items, setItems] = useState<Featured[]>([]);
@@ -85,6 +86,11 @@ function FeaturedHotels({ featured, scanMax }: { featured: string[]; scanMax: nu
               <Link href={`/p/${id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700">
                 Tìm phòng &amp; đặt ngay <ArrowRight className="w-3.5 h-3.5" />
               </Link>
+              {data && (
+                <button type="button" onClick={() => onChat(id, data.propertyName)} className="ml-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700">
+                  <MessageSquare className="w-3.5 h-3.5" /> Hỏi chatbot
+                </button>
+              )}
             </div>
           </div>
         );
@@ -99,6 +105,7 @@ export function CustomerPortal({ featuredIds, scanMax = 40 }: { featuredIds: str
   const [code, setCode] = useState("");
   const [contact, setContact] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [chat, setChat] = useState<{ id: string; name: string } | null>(null);
 
   const goHotel = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,9 +174,19 @@ export function CustomerPortal({ featuredIds, scanMax = 40 }: { featuredIds: str
 
         <section className="space-y-4">
           <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white"><BedDouble className="w-5 h-5 text-blue-600" /> Khách sạn đang mở đặt phòng</h2>
-          <FeaturedHotels featured={featuredIds} scanMax={scanMax} />
+          <FeaturedHotels featured={featuredIds} scanMax={scanMax} onChat={(id, name) => setChat({ id, name })} />
         </section>
       </main>
+
+      {chat && (
+        <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm">
+          <div className="flex items-center justify-between rounded-t-2xl bg-slate-900 px-4 py-2 text-xs font-bold text-white">
+            <span className="line-clamp-1">Chatbot · {chat.name}</span>
+            <button type="button" onClick={() => setChat(null)} aria-label="Đóng chatbot" className="text-slate-300 hover:text-white">✕</button>
+          </div>
+          <ChatWidget key={chat.id} mode="guest" propertyId={chat.id} className="h-[460px] rounded-t-none" />
+        </div>
+      )}
     </div>
   );
 }
