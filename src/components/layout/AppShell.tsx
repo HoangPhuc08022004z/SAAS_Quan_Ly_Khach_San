@@ -22,11 +22,13 @@ export function AppShell({ portal, children }: AppShellProps) {
   const { isTenantSuspended, isSubscriptionExpired, isAdmin, isOwner, isPmsStaff } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const [hydrated, setHydrated] = useState(() => useSessionStore.persist.hasHydrated());
+  const [hydrated, setHydrated] = useState(() => useSessionStore.persist?.hasHydrated?.() ?? false);
 
   useEffect(() => {
-    if (useSessionStore.persist.hasHydrated()) setHydrated(true);
-    return useSessionStore.persist.onFinishHydration(() => setHydrated(true));
+    const persist = useSessionStore.persist;
+    if (!persist) return;
+    if (persist.hasHydrated()) setHydrated(true);
+    return persist.onFinishHydration(() => setHydrated(true));
   }, []);
 
   // Chặn vào sai cổng: mỗi cổng chỉ nhận đúng loại tài khoản (Admin / Owner / nhân viên PMS)

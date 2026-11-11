@@ -25,6 +25,15 @@ interface ChatWidgetProps {
   className?: string;
 }
 
+function friendlyError(detail: string, mode: ChatWidgetProps["mode"]) {
+  if (/401|expired|Unauthorized/i.test(detail)) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi hỏi tiếp.";
+  if (/403|Forbidden|chỉ dành cho/i.test(detail))
+    return mode === "staff"
+      ? `Tài khoản này chưa được phép dùng chatbot nhân viên hoặc khách sạn đang bị khóa vận hành. (Backend: ${detail})`
+      : `Tài khoản hiện tại không có quyền dùng chatbot này. (Backend: ${detail})`;
+  return detail ? `Không thể trả lời lúc này: ${detail}` : "Không kết nối được tới chatbot. Vui lòng thử lại sau.";
+}
+
 export function ChatWidget({
   mode,
   propertyId,
@@ -57,7 +66,7 @@ export function ChatWidget({
     setMessages([{ id: "msg_welcome", sender: "bot", text: welcome }]);
 
     if (mode === "staff") {
-      api.getChatSuggestions(role?.code || "MANAGER").then(setSuggestions);
+      setSuggestions(["Quy trình check-in như thế nào?", "Chính sách hủy phòng và hoàn cọc?", "Giờ nhận phòng, trả phòng tiêu chuẩn?"]);
     } else if (mode === "guest") {
       setSuggestions(["Giờ nhận phòng tiêu chuẩn?", "Giá phòng và phòng còn trống?", "Chính sách hủy phòng"]);
     }
@@ -70,6 +79,11 @@ export function ChatWidget({
   const handleSend = async (textToSend?: string) => {
     const query = textToSend || input;
     if (!query.trim() || isLoading) return;
+
+    if (mode === "guest" && !targetPropId) {
+      setMessages((prev) => [...prev, { id: `bot_err_${Date.now()}`, sender: "bot", text: "Chưa chọn khách sạn nên chưa thể trả lời. Vui lòng chọn khách sạn trước." }]);
+      return;
+    }
 
     const userMsg: ChatMessage = { id: `usr_${Date.now()}`, sender: "user", text: query };
     setMessages((prev) => [...prev, userMsg]);
@@ -91,18 +105,8 @@ export function ChatWidget({
         // GET /api/properties/{propertyId}/chat?question=
         botResponse = { answer: await ownerChatApi.ask(targetPropId, query) };
       } else {
-        try {
-          // Gọi OpenAPI: GET /api/v1/chat/saas?question={query}
-          const openApiAnswer = await askChatbot(query);
-          if (openApiAnswer) {
-            botResponse = {
-              answer: openApiAnswer,
-              canEscalateToTicket: openApiAnswer.includes("ticket"),
-            };
-          }
-        } catch {
-          botResponse = await api.askSupportBot(query);
-        }
+        // GET /api/v1/chat/saas?question= (Owner)
+        botResponse = { answer: await askChatbot(query) };
       }
 
       setMessages((prev) => [
@@ -113,7 +117,6 @@ export function ChatWidget({
           text: botResponse.answer,
           citations: botResponse.citations,
           liveAvailability: botResponse.liveAvailability,
-          canEscalate: botResponse.canEscalateToTicket,
         },
       ]);
     } catch (err: any) {
@@ -122,9 +125,7 @@ export function ChatWidget({
         {
           id: `bot_err_${Date.now()}`,
           sender: "bot",
-          text: err?.message
-            ? `Không thể trả lời lúc này: ${err.message}`
-            : "Xin lỗi, hiện tại không thể kết nối tới mô hình AI. Vui lòng thử lại sau.",
+          text: friendlyError(String(err?.message || ""), mode),
         },
       ]);
     } finally {

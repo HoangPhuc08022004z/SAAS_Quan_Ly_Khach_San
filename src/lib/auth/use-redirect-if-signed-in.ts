@@ -16,8 +16,10 @@ export function useRedirectIfSignedIn(kind: "platform" | "staff") {
       if (kind === "staff" && st.user) router.replace("/pms");
       if (kind === "platform" && st.account) router.replace(st.account.is_admin ? "/admin" : "/owner");
     };
-    if (useSessionStore.persist.hasHydrated()) check();
-    return useSessionStore.persist.onFinishHydration(check);
+    const persist = useSessionStore.persist;
+    if (!persist) return;
+    if (persist.hasHydrated()) check();
+    return persist.onFinishHydration(check);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, user, kind]);
 }
