@@ -367,9 +367,12 @@ export const policyDocumentApi = {
   update: (propertyId: number | string, files: File[], deleteFileIds: number[]) => {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
-    deleteFileIds.forEach((id) => form.append("deleteFileIds", String(id)));
+    // Theo OpenAPI, deleteFileIds là query param (lặp lại theo từng id), không phải trường của form
+    const qs = new URLSearchParams();
+    deleteFileIds.forEach((id) => qs.append("deleteFileIds", String(id)));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request<{ message: string; addedCount: number; deletedCount: number }>(
-      `/api/properties/${propertyId}/policy-documents`,
+      `/api/properties/${propertyId}/policy-documents${suffix}`,
       { method: "PUT", body: form }
     );
   },

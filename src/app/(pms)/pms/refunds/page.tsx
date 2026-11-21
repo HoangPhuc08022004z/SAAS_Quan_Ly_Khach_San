@@ -1,21 +1,15 @@
-// FR: FR-O32, FR-O33, FR-O34
-// Service: api.listRefunds, api.createRefundRequest, api.executeRefund, api.setRefundStatus
+"use client";
 
-import { api } from "@/lib/api";
+// API thật: POST /api/properties/{id}/reservations/{code}/refunds, GET /api/properties/{id}/refunds/{refundPaymentId}
+import React from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { RefundManagementView } from "@/features/refund/components/RefundManagementView";
 
-export const dynamic = "force-dynamic";
-
-export default async function RefundsPage() {
-  const [refunds, reservations] = await Promise.all([
-    api.listRefunds(),
-    api.searchReservations(),
-  ]);
-
+export default function RefundsPage() {
   return (
-    <RefundManagementView
-      initialRefunds={refunds}
-      reservations={reservations}
-    />
+    <div className="space-y-6">
+      <PageHeader title="Hoàn Tiền" description="Tạo yêu cầu hoàn tiền cho khoản đã thanh toán và theo dõi trạng thái hoàn." />
+      <RefundManagementView />
+    </div>
   );
 }

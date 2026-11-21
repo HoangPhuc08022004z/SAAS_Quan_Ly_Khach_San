@@ -1,342 +1,227 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { StatusBadge } from "@/components/data/StatusBadge";
+// API: GET .../check-in/reservations/{code}, GET .../guests, GET .../check-in/rooms/{roomId}/readiness,
+//      POST .../check-in/reservations/{code}/complete  (token nhân viên PMS)
+import React, { useState } from "react";
+import { toast } from "sonner";
+import { Search, UserCheck, BedDouble, CheckCircle2, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  checkInApi,
+  type CheckInReservation,
+  type CheckInGuestProfiles,
+  type CheckInCompleted,
+  type RoomReadiness,
+} from "@/lib/api";
 import { DateText } from "@/components/data/DateText";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
 import {
-  LogIn,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  User,
-  DoorOpen,
-  Key,
-  Printer,
-  Sparkles,
-  ArrowRight,
-  ShieldAlert,
-} from "lucide-react";
+  Card, ErrorBox, Field, NoProperty, Pill, ReservationStatus, Spinner,
+  btnGhost, btnPrimary, inputCls, usePmsProperty,
+} from "@/features/pms-ops/ui";
 
-export function CheckinFlow({ initialReservations }: { initialReservations: any[] }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const queryResId = searchParams.get("reservationId");
+export function CheckinFlow() {
+  const { propertyId } = usePmsProperty();
+  const [code, setCode] = useState("");
+  const [contact, setContact] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reservation, setReservation] = useState<CheckInReservation | null>(null);
+  const [guests, setGuests] = useState<CheckInGuestProfiles | null>(null);
+  const [guestsError, setGuestsError] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<Record<number, RoomReadiness | { error: string }>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [done, setDone] = useState<CheckInCompleted | null>(null);
 
-  const [reservations] = useState<any[]>(initialReservations);
-  const [selectedResId, setSelectedResId] = useState<string>(
-    queryResId || initialReservations.find((r) => r.status === "CONFIRMED")?.id || initialReservations[0]?.id || ""
-  );
+  if (!propertyId) return <NoProperty />;
 
-  const [reservation, setReservation] = useState<any | null>(null);
-  const [readiness, setReadiness] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Guest profile fields
-  const [guestName, setGuestName] = useState("");
-  const [guestIdNumber, setGuestIdNumber] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
-  const [guestNationality, setGuestNationality] = useState("Việt Nam");
-
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
-  const [handoverSlip, setHandoverSlip] = useState<any | null>(null);
-
-  useEffect(() => {
-    if (!selectedResId) return;
-
-    let isMounted = true;
-    const loadDetail = async () => {
-      setIsLoading(true);
-      try {
-        const [res, check] = await Promise.all([
-          api.getReservation(selectedResId),
-          api.getCheckinCheck(selectedResId),
-        ]);
-        if (isMounted) {
-          setReservation(res);
-          setReadiness(check);
-          setGuestName(res.guest?.full_name || "");
-          setGuestPhone(res.guest?.phone || "");
-          setGuestIdNumber(res.guest?.id_card_number || "");
-          setHandoverSlip(null);
+  const loadReadiness = async (res: CheckInReservation) => {
+    const entries = await Promise.all(
+      res.rooms.map(async (r): Promise<[number, RoomReadiness | { error: string }]> => {
+        try {
+          return [r.roomId, await checkInApi.readiness(propertyId, r.roomId)];
+        } catch (e: any) {
+          return [r.roomId, { error: e?.message || "Không kiểm tra được phòng." }];
         }
-      } catch {
-        // Ignored
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
+      })
+    );
+    setReadiness(Object.fromEntries(entries));
+  };
 
-    loadDetail();
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedResId]);
-
-  const handleCompleteCheckin = async () => {
-    if (!readiness?.canCheckIn) {
-      toast.error("Không thể Check-in vì vẫn còn phòng chưa sẵn sàng.");
-      return;
-    }
-    if (!guestName.trim() || !guestIdNumber.trim()) {
-      toast.error("Vui lòng nhập đầy đủ họ tên và số CCCD/Passport của khách.");
-      return;
-    }
-
-    setIsCheckingIn(true);
+  const search = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return setError("Nhập mã đặt phòng.");
+    setLoading(true);
+    setError(null);
+    setReservation(null);
+    setGuests(null);
+    setGuestsError(null);
+    setReadiness({});
+    setDone(null);
     try {
-      // Save guest info
-      await api.saveReservationGuests(selectedResId, [
-        {
-          id: reservation.guest?.id,
-          full_name: guestName.trim(),
-          id_card_number: guestIdNumber.trim(),
-          phone: guestPhone.trim(),
-          nationality: guestNationality,
-        },
-      ]);
-
-      // Complete Check-in
-      const checkedIn = await api.checkIn(selectedResId);
-      toast.success("Check-in hoàn tất! Bàn giao phòng thành công.");
-
-      setHandoverSlip({
-        reservationCode: checkedIn.code || checkedIn.id,
-        guestName: guestName.trim(),
-        rooms: readiness.rooms,
-        checkInDate: checkedIn.check_in_date,
-        checkOutDate: checkedIn.check_out_date,
-        time: new Date().toLocaleTimeString("vi-VN"),
-      });
-
-      // Reload detail
-      const updatedCheck = await api.getCheckinCheck(selectedResId);
-      setReadiness(updatedCheck);
-      setReservation((prev: any) => ({ ...prev, status: "CHECKED_IN" }));
-    } catch (err: any) {
-      toast.error(err?.message || "Lỗi khi hoàn tất Check-in.");
+      const c = contact.trim();
+      const res = await checkInApi.search(propertyId, code.trim(), c ? (c.includes("@") ? { email: c } : { phone: c }) : {});
+      setReservation(res);
+      void loadReadiness(res);
+      checkInApi
+        .guests(propertyId, res.reservationCode)
+        .then(setGuests)
+        .catch((e: any) => setGuestsError(e?.message || "Không tải được hồ sơ khách."));
+    } catch (e: any) {
+      setError(e?.message || "Không tìm thấy đặt phòng.");
     } finally {
-      setIsCheckingIn(false);
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="space-y-6 max-w-5xl">
-      {/* Top Selector / Search */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-            <LogIn className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Quầy Tiếp Đón & Check-in</h3>
-            <p className="text-xs text-slate-400">Kiểm tra phòng sẵn sàng và lưu hồ sơ lưu trú khách hàng</p>
-          </div>
-        </div>
+  const allReady =
+    !!reservation &&
+    reservation.rooms.length > 0 &&
+    reservation.rooms.every((r) => {
+      const x = readiness[r.roomId];
+      return x && !("error" in x) && x.isReady;
+    });
+  const canComplete = reservation?.status === "CONFIRMED" && allReady;
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-500">Chọn đặt phòng:</label>
-          <select
-            value={selectedResId}
-            onChange={(e) => setSelectedResId(e.target.value)}
-            className="px-3.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white font-medium"
-          >
-            {reservations.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.code || r.id} - {r.guest?.full_name} ({r.status})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+  const complete = async () => {
+    if (!reservation) return;
+    setCompleting(true);
+    try {
+      const res = await checkInApi.complete(propertyId, reservation.reservationCode);
+      setDone(res);
+      setReservation({ ...reservation, status: res.reservationStatus });
+      toast.success(`Đã nhận phòng cho đặt phòng ${res.reservationCode}.`);
+      setConfirmOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Không thể hoàn tất check-in.");
+      setConfirmOpen(false);
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const blockedReason =
+    reservation && !canComplete
+      ? reservation.status !== "CONFIRMED"
+        ? `Đặt phòng đang ở trạng thái "${reservation.status}", chỉ đặt phòng đã xác nhận (đã cọc) mới nhận phòng được.`
+        : "Có phòng chưa sẵn sàng (cần trạng thái READY) hoặc chưa kiểm tra được."
+      : null;
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <form onSubmit={search} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <Field label="Mã đặt phòng">
+            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ví dụ: RSV-XXXXXX" className={inputCls} />
+          </Field>
+          <Field label="Email hoặc SĐT khách (tùy chọn)">
+            <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="khach@email.com" className={inputCls} />
+          </Field>
+          <button type="submit" disabled={loading} className={btnPrimary}>
+            <Search className="h-4 w-4" /> Tìm đặt phòng
+          </button>
+        </form>
+      </Card>
+
+      {loading && <Spinner label="Đang tìm đặt phòng..." />}
+      <ErrorBox message={error} />
 
       {reservation && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Room Readiness (7 cols) */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                    <DoorOpen className="w-4 h-4 text-blue-500" />
-                    <span>Kiểm Tra Trạng Thái Sẵn Sàng Của Phòng (Readiness)</span>
-                  </h4>
-                  <p className="text-xs text-slate-400">
-                    Quy tắc BR-OP-10: Chỉ được Check-in khi toàn bộ phòng thuộc đơn đều ở trạng thái READY và không có sự cố buồng phòng chưa xử lý.
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Banner */}
-              <div
-                className={`p-4 rounded-2xl border text-xs flex items-start gap-2.5 ${
-                  readiness?.canCheckIn
-                    ? "border-emerald-200 bg-emerald-50/40 text-emerald-900 dark:border-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-200"
-                    : "border-amber-200 bg-amber-50/40 text-amber-900 dark:border-amber-950 dark:bg-amber-950/20 dark:text-amber-200"
-                }`}
-              >
-                {readiness?.canCheckIn ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                )}
-                <div>
-                  <div className="font-bold">
-                    {readiness?.canCheckIn
-                      ? "Tất cả các phòng đều ĐÃ SẴN SÀNG đón khách"
-                      : "Chưa đủ điều kiện hoàn tất Check-in"}
-                  </div>
-                  {readiness?.reasons?.length > 0 && (
-                    <ul className="list-disc pl-4 mt-1 space-y-0.5 opacity-90">
-                      {readiness.reasons.map((r: string, idx: number) => (
-                        <li key={idx}>{r}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              {/* Rooms List */}
-              <div className="space-y-2.5">
-                {readiness?.rooms?.map((rm: any) => (
-                  <div
-                    key={rm.id}
-                    className="p-3.5 rounded-2xl border border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/40 flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-900 font-bold border border-slate-200 dark:border-slate-800">
-                        {rm.room_number}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white">
-                          Phòng {rm.room_number} (Tầng {rm.floor})
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {rm.hasIssue ? "⚠️ Có cảnh báo buồng phòng" : "Vệ sinh buồng phòng sạch sẽ"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <StatusBadge type="room" status={rm.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className="grid gap-5 lg:grid-cols-3">
+          <Card className="space-y-3 lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                <UserCheck className="h-4 w-4 text-blue-600" /> {reservation.reservationCode}
+              </h3>
+              <ReservationStatus status={reservation.status} />
             </div>
-          </div>
+            <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+              <div><dt className="text-slate-400">Nhận phòng</dt><dd><DateText date={reservation.checkInDate} /></dd></div>
+              <div><dt className="text-slate-400">Trả phòng</dt><dd><DateText date={reservation.checkOutDate} /></dd></div>
+              <div><dt className="text-slate-400">Số khách</dt><dd className="font-semibold">{reservation.guestCount}</dd></div>
+              <div><dt className="text-slate-400">Khách đặt</dt><dd className="font-semibold">{reservation.guest.fullName}</dd></div>
+            </dl>
 
-          {/* Right Column: Guest Profile & Complete Action (5 cols) */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-5">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-blue-500" />
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Hồ Sơ Khách Lưu Trú (Khai báo tạm trú)
-                </h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Phòng được gán</h4>
+                <button type="button" onClick={() => loadReadiness(reservation)} className={btnGhost}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Kiểm tra lại
+                </button>
               </div>
+              {reservation.rooms.map((r) => {
+                const x = readiness[r.roomId];
+                return (
+                  <div key={r.roomId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 text-xs dark:border-slate-800">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <BedDouble className="h-4 w-4 text-slate-400" /> Phòng {r.roomNumber} · tầng {r.floor}
+                    </span>
+                    {!x ? (
+                      <Pill tone="slate">Đang kiểm tra...</Pill>
+                    ) : "error" in x ? (
+                      <span className="text-rose-600">{x.error}</span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Pill tone="slate">{x.roomStatus}</Pill>
+                        {x.isReady ? (
+                          <span className="flex items-center gap-1 font-semibold text-emerald-600"><CheckCircle2 className="h-4 w-4" /> Sẵn sàng</span>
+                        ) : (
+                          <span className="flex items-center gap-1 font-semibold text-rose-600"><XCircle className="h-4 w-4" /> Chưa sẵn sàng</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-              <div className="space-y-3.5 text-xs">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">
-                    Họ và tên khách <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
-                  />
-                </div>
+            {blockedReason && !done && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">{blockedReason}</p>}
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">
-                    Số CCCD / Hộ chiếu (Bắt buộc) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={guestIdNumber}
-                    onChange={(e) => setGuestIdNumber(e.target.value)}
-                    placeholder="001201019283"
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Số điện thoại</label>
-                  <input
-                    type="text"
-                    value={guestPhone}
-                    onChange={(e) => setGuestPhone(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Quốc tịch</label>
-                  <input
-                    type="text"
-                    value={guestNationality}
-                    onChange={(e) => setGuestNationality(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCompleteCheckin}
-                disabled={!readiness?.canCheckIn || isCheckingIn || reservation.status === "CHECKED_IN"}
-                className="w-full py-3 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm flex items-center justify-center gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>
-                  {reservation.status === "CHECKED_IN"
-                    ? "Đã hoàn tất Check-in"
-                    : isCheckingIn
-                    ? "Đang hoàn tất..."
-                    : "Hoàn tất Check-in & Bàn giao phòng"}
-                </span>
+            <div className="flex justify-end">
+              <button type="button" disabled={!canComplete || !!done} onClick={() => setConfirmOpen(true)} className={btnPrimary}>
+                <ShieldCheck className="h-4 w-4" /> Hoàn tất check-in
               </button>
             </div>
+          </Card>
 
-            {/* Handover Slip (Phiếu Bàn Giao Khóa Phòng) */}
-            {handoverSlip && (
-              <div className="p-6 rounded-3xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-950 dark:bg-emerald-950/20 space-y-4 text-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-emerald-200 dark:border-emerald-900">
-                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
-                    <Key className="w-4 h-4" />
-                    <span>Phiếu Bàn Giao Thẻ Khóa Phòng</span>
-                  </div>
-                  <button
-                    onClick={() => window.print()}
-                    className="p-1 rounded-lg text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
-                    title="In phiếu bàn giao"
-                  >
-                    <Printer className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-1.5 text-slate-700 dark:text-slate-300">
-                  <div>Khách hàng: <strong>{handoverSlip.guestName}</strong></div>
-                  <div>Mã đặt phòng: <strong>{handoverSlip.reservationCode}</strong></div>
-                  <div>Phòng bàn giao: <strong>{handoverSlip.rooms?.map((r: any) => `P.${r.room_number}`).join(", ")}</strong></div>
-                  <div>Thời gian bàn giao: {handoverSlip.time} ngày {handoverSlip.checkInDate}</div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/80 text-[11px] text-slate-500">
-                  Chúc Quý khách có kỳ nghỉ thư thái và hài lòng tại khách sạn!
-                </div>
+          <Card className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Hồ sơ khách</h3>
+            {guestsError && <ErrorBox message={guestsError} />}
+            {!guests && !guestsError && <Spinner />}
+            {guests?.guests.map((g, i) => (
+              <div key={g.guestId ?? i} className="space-y-0.5 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60">
+                <p className="font-bold">{g.fullName}</p>
+                {g.phone && <p>SĐT: {g.phone}</p>}
+                {g.email && <p>Email: {g.email}</p>}
+                <p>{g.identityType || "Giấy tờ"}: {g.identityNumber || "chưa có"}</p>
+                {g.nationality && <p>Quốc tịch: {g.nationality}</p>}
               </div>
-            )}
-          </div>
+            ))}
+            {guests && guests.guests.length === 0 && <p className="text-xs text-slate-400">Chưa có hồ sơ khách.</p>}
+          </Card>
         </div>
       )}
+
+      {done && (
+        <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900">
+          <p className="text-sm font-bold text-emerald-700">Check-in thành công · {done.reservationCode}</p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {done.rooms.map((r) => (
+              <li key={r.roomId}>Phòng {r.roomNumber} (tầng {r.floor}) → {r.roomStatus}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        title="Hoàn tất check-in?"
+        description={`Xác nhận bàn giao phòng cho đặt phòng ${reservation?.reservationCode ?? ""}. Thao tác không hoàn tác được.`}
+        confirmText="Hoàn tất"
+        isLoading={completing}
+        onConfirm={complete}
+        onClose={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

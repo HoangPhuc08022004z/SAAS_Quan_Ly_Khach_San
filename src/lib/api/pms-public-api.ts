@@ -195,13 +195,15 @@ export interface ReservationDetail {
   paymentExpiresAt?: string | null;
   paymentHoldExpired?: boolean;
   guest: GuestInformation;
+  // Theo OpenAPI (RoomDetail) chỉ chắc chắn có roomId, roomNumber, floor, status; các trường giá/loại phòng tùy phiên bản backend
   rooms: {
     roomId: number;
     roomNumber: string;
     floor: number;
-    roomType: string;
-    nightlyPrices: { stayDate: string; roomRateId: number; rateName: string; price: number }[];
-    totalPrice: number;
+    status?: string;
+    roomType?: string;
+    nightlyPrices?: { stayDate: string; roomRateId: number; rateName: string; price: number }[];
+    totalPrice?: number;
   }[];
   payments: {
     reservationPaymentId: number;

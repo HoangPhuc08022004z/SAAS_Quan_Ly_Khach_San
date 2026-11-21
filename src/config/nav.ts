@@ -39,7 +39,9 @@ export const PMS_NAV: NavItem[] = [
   { title: "Dịch vụ F&B", href: "/pms/fnb/menu", icon: "Utensils", permission: "MENU_VIEW" },
   { title: "Dịch vụ khách sạn", href: "/pms/services", icon: "ConciergeBell", permission: "GUEST_SERVICE_CREATE" },
   { title: "Hủy & Hoàn tiền", href: "/pms/cancellations", icon: "RotateCcw", permission: "RESERVATION_CANCEL" },
-  { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "NO_SHOW_VIEW" },
+  { title: "Hoàn tiền", href: "/pms/refunds", icon: "Wallet", permission: "REFUND_VIEW" },
+  // API no-show yêu cầu quyền RESERVATION_VIEW (theo OpenAPI), không phải NO_SHOW_VIEW
+  { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "RESERVATION_VIEW" },
   { title: "Chốt ngày (Night Audit)", href: "/pms/night-audit", icon: "Moon", permission: "NIGHT_AUDIT_VIEW" },
   { title: "Báo cáo vận hành", href: "/pms/reports", icon: "TrendingUp", permission: "PROPERTY_REPORT_CONFIRM" },
   { title: "Trợ lý Chatbot AI", href: "/pms/chat", icon: "Bot", permission: "CHATBOT_HOTEL_INFO" },

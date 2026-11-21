@@ -89,7 +89,7 @@ export function OwnerSupportView({ initialTickets }: { initialTickets: any[] }) 
       const detail = String(err?.message || "");
       // 403 = chưa đăng nhập / token hết hạn / tài khoản không phải Owner (ví dụ Admin)
       const reason = /403|Forbidden|HTTP 403/i.test(detail)
-        ? "Phiên đăng nhập đã hết hạn hoặc tài khoản không có quyền dùng chatbot (chỉ dành cho Owner). Vui lòng đăng nhập lại bằng tài khoản Owner."
+        ? "Phiên đăng nhập đã hết hạn hoặc tài khoản không có quyền dùng chatbot. Vui lòng đăng nhập lại."
         : "Hiện tại tôi gặp sự cố khi tra cứu cơ sở tri thức. Quý khách vui lòng tạo ticket để kỹ thuật viên hỗ trợ trực tiếp.";
       console.error("[chatbot]", detail);
       setChatMessages((prev) => [

@@ -1,13 +1,13 @@
 "use client";
 
 // FR: FR-C12, FR-C13
-// Tên khách sạn: API thật GET /api/properties/{id}. Cổng thanh toán: backend chưa có API → vẫn dùng mock.
+// API thật: GET /api/properties/{id}, GET /api/payment-gateways, GET /api/properties/{id}/payment-gateway (404 = chưa cấu hình)
 import React, { use } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AsyncBoundary } from "@/components/feedback/AsyncBoundary";
 import { GatewayConfig } from "@/features/property-config/components/GatewayConfig";
-import { api, propertyApi } from "@/lib/api";
+import { paymentGatewayApi, propertyApi } from "@/lib/api";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { ArrowLeft } from "lucide-react";
 
@@ -16,8 +16,12 @@ export default function PropertyPaymentGatewayPage({ params }: { params: Promise
   const { data, loading, error, reload } = useAsyncData(async () => {
     const [property, gateways, config] = await Promise.all([
       propertyApi.get(id),
-      api.listGateways(),
-      api.getGatewayConfig(id),
+      paymentGatewayApi.catalog().catch(() => []),
+      paymentGatewayApi.get(id).catch((e: any) => {
+        // 404 = khách sạn chưa cấu hình cổng; lỗi khác thì báo ra
+        if (/404|không tìm thấy|chưa cấu hình|not found/i.test(String(e?.message))) return null;
+        throw e;
+      }),
     ]);
     return { property, gateways, config };
   });
@@ -36,7 +40,7 @@ export default function PropertyPaymentGatewayPage({ params }: { params: Promise
 
       <PageHeader
         title={`Cấu Hình Cổng Thanh Toán: ${data?.property.name ?? ""}`}
-        description="Kết nối đối tác cổng thanh toán trực tuyến (MoMo, VNPAY, ZaloPay) để tự động thu cọc và quyết toán."
+        description="Kết nối Stripe của khách sạn để khách thanh toán tiền cọc trực tuyến khi đặt phòng."
       />
 
       <AsyncBoundary loading={loading} error={error} onRetry={reload}>

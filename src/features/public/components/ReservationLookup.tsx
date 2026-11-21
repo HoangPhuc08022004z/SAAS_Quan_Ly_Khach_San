@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { markReservationPayment, clearReservationPayment } from "@/lib/payment-return";
 import { PaymentCountdown } from "@/features/public/components/PaymentCountdown";
+import { GuestCancelPanel, GuestFnbPanel } from "@/features/public/components/GuestReservationActions";
 import { publicApi, type GuestContact, type ReservationDetail } from "@/lib/api";
 import { MoneyText } from "@/components/data/MoneyText";
 import { Loader2, Search, CalendarClock } from "lucide-react";
@@ -213,10 +214,10 @@ export function ReservationLookup() {
                 <div>
                   <span className="font-bold">Phòng {r.roomNumber}</span>{" "}
                   <span className="text-slate-400">
-                    • {r.roomType} • Tầng {r.floor}
+                    {r.roomType ? `• ${r.roomType} ` : ""}• Tầng {r.floor}
                   </span>
                 </div>
-                <MoneyText amount={r.totalPrice} className="font-bold" />
+                {r.totalPrice != null && <MoneyText amount={r.totalPrice} className="font-bold" />}
               </div>
             ))}
           </div>
@@ -275,6 +276,12 @@ export function ReservationLookup() {
           )}
           {data.status === "PENDING_PAYMENT" && data.paymentHoldExpired && (
             <p className="text-xs text-rose-600">Thời gian giữ phòng đã hết hạn. Vui lòng đặt phòng lại.</p>
+          )}
+
+          {(data.status === "CONFIRMED" || data.status === "CHECKED_IN") && <GuestFnbPanel code={data.reservationCode} contact={contact()} />}
+
+          {(data.status === "CONFIRMED" || (data.status === "PENDING_PAYMENT" && !data.paymentHoldExpired)) && (
+            <GuestCancelPanel code={data.reservationCode} contact={contact()} onChanged={lookup} />
           )}
         </div>
       )}

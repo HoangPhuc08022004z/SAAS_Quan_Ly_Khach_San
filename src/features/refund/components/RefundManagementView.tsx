@@ -1,398 +1,215 @@
 "use client";
 
-import React, { useState } from "react";
-import { NumberInput } from "@/components/forms/NumberInput";
-import { Refund, Reservation } from "@/lib/api/types";
-import { api } from "@/lib/api";
-import { MoneyText } from "@/components/data/MoneyText";
-import { DateText } from "@/components/data/DateText";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { EmptyState } from "@/components/feedback/EmptyState";
+// API: POST .../reservations/{code}/refunds (REFUND_CREATE), GET .../refunds/{refundPaymentId} (REFUND_VIEW)
+// Backend không có API liệt kê hoàn tiền → các mã hoàn tiền đã tạo được lưu cục bộ trên trình duyệt để theo dõi.
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { RotateCcw, Search, RefreshCw } from "lucide-react";
 import {
-  RotateCcw,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Plus,
-  RefreshCw,
-  Send,
-  CreditCard,
-  AlertCircle,
-  ExternalLink,
-} from "lucide-react";
+  publicApi,
+  reservationStaffApi,
+  type ReservationDetail,
+  type RefundStatus,
+  type RefundRequestCreated,
+} from "@/lib/api";
+import { DateText } from "@/components/data/DateText";
+import {
+  Card, ErrorBox, Field, NoProperty, Pill, Spinner,
+  btnGhost, btnPrimary, inputCls, usePmsProperty, vnd,
+} from "@/features/pms-ops/ui";
 
-interface RefundManagementViewProps {
-  initialRefunds: Refund[];
-  reservations: Reservation[];
-}
-
-export function RefundManagementView({
-  initialRefunds,
-  reservations,
-}: RefundManagementViewProps) {
-  const [refunds, setRefunds] = useState(initialRefunds);
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [selectedExecuteId, setSelectedExecuteId] = useState<string | null>(null);
-  const [selectedStatusEdit, setSelectedStatusEdit] = useState<{ id: string; status: Refund["status"] } | null>(null);
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Manual refund form state
-  const [manualResId, setManualResId] = useState(reservations[0]?.id || "");
-  const [manualAmount, setManualAmount] = useState(200000);
-  const [manualReason, setManualReason] = useState("");
-  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
-
-  async function refreshRefunds() {
-    try {
-      setIsRefreshing(true);
-      const res = await api.listRefunds();
-      setRefunds(res);
-    } catch (err: any) {
-      toast.error(err.message || "Không thể tải lại danh sách hoàn tiền");
-    } finally {
-      setIsRefreshing(false);
-    }
+const STORE_KEY = "pms_refund_ids";
+const readIds = (propertyId: string): number[] => {
+  try {
+    const all = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+    return Array.isArray(all[propertyId]) ? all[propertyId] : [];
+  } catch {
+    return [];
   }
-
-  async function handleExecuteRefund() {
-    if (!selectedExecuteId) return;
-    try {
-      await api.executeRefund(selectedExecuteId);
-      toast.success("Đã thực hiện hoàn tiền qua Cổng thanh toán thành công!");
-      setSelectedExecuteId(null);
-      refreshRefunds();
-    } catch (err: any) {
-      toast.error(err.message || "Không thể thực hiện hoàn tiền");
-    }
+};
+const writeIds = (propertyId: string, ids: number[]) => {
+  try {
+    const all = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+    all[propertyId] = ids;
+    localStorage.setItem(STORE_KEY, JSON.stringify(all));
+  } catch {
+    /* không lưu được thì bỏ qua */
   }
+};
 
-  async function handleUpdateStatus() {
-    if (!selectedStatusEdit) return;
+const refundTone = (s: string) =>
+  (({ SUCCEEDED: "green", PENDING: "amber", PROCESSING: "blue", FAILED: "rose", REFUNDED: "green" }) as const)[s as "PENDING"] ?? "slate";
+
+export function RefundManagementView() {
+  const { propertyId } = usePmsProperty();
+  const [code, setCode] = useState("");
+  const [contact, setContact] = useState("");
+  const [reservation, setReservation] = useState<ReservationDetail | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [paymentId, setPaymentId] = useState("");
+  const [reason, setReason] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<RefundRequestCreated | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const [ids, setIds] = useState<number[]>([]);
+  const [statuses, setStatuses] = useState<Record<number, RefundStatus | { error: string }>>({});
+  const [manualId, setManualId] = useState("");
+
+  const track = async (id: number) => {
     try {
-      await api.setRefundStatus(selectedStatusEdit.id, selectedStatusEdit.status);
-      toast.success("Đã cập nhật trạng thái hoàn tiền!");
-      setSelectedStatusEdit(null);
-      refreshRefunds();
-    } catch (err: any) {
-      toast.error(err.message || "Không thể cập nhật trạng thái");
+      const s = await reservationStaffApi.refundStatus(propertyId, id);
+      setStatuses((p) => ({ ...p, [id]: s }));
+    } catch (e: any) {
+      setStatuses((p) => ({ ...p, [id]: { error: e?.message || "Không tải được trạng thái." } }));
     }
-  }
+  };
 
-  async function handleManualSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (!propertyId) return;
+    const saved = readIds(propertyId);
+    setIds(saved);
+    saved.forEach((id) => void track(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId]);
+
+  if (!propertyId) return <NoProperty />;
+
+  const remember = (id: number) => {
+    const next = [id, ...ids.filter((x) => x !== id)].slice(0, 30);
+    setIds(next);
+    writeIds(propertyId, next);
+  };
+
+  const lookup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualResId) {
-      toast.error("Vui lòng chọn đặt phòng");
-      return;
-    }
-    if (manualAmount <= 0) {
-      toast.error("Số tiền hoàn phải lớn hơn 0");
-      return;
-    }
-    if (!manualReason.trim()) {
-      toast.error("Vui lòng nhập lý do hoàn tiền");
-      return;
-    }
-
+    const c = contact.trim();
+    if (!code.trim() || !c) return setLookupError("Nhập mã đặt phòng và email hoặc SĐT của khách (để xem các khoản đã thanh toán).");
+    setLooking(true);
+    setLookupError(null);
+    setReservation(null);
+    setCreated(null);
+    setPaymentId("");
     try {
-      setIsSubmittingManual(true);
-      await api.createRefundRequest(manualResId, {
-        amount: manualAmount,
-        reason: manualReason.trim(),
-      });
-      toast.success("Đã tạo yêu cầu hoàn tiền mới thành công!");
-      setIsManualModalOpen(false);
-      setManualReason("");
-      refreshRefunds();
-    } catch (err: any) {
-      toast.error(err.message || "Không thể tạo yêu cầu hoàn tiền");
+      const res = await publicApi.getReservation(code.trim(), c.includes("@") ? { email: c } : { phone: c });
+      setReservation(res);
+      const first = res.payments.find((p) => p.status === "SUCCEEDED" && p.paymentType !== "REFUND");
+      if (first) setPaymentId(String(first.reservationPaymentId));
+    } catch (e: any) {
+      setLookupError(e?.message || "Không tìm thấy đặt phòng.");
     } finally {
-      setIsSubmittingManual(false);
+      setLooking(false);
     }
-  }
+  };
 
-  const filteredRefunds = refunds.filter((r) => {
-    if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
-    return true;
-  });
+  const createRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reservation || !paymentId) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await reservationStaffApi.createRefund(propertyId, reservation.reservationCode, {
+        reservationPaymentId: Number(paymentId),
+        reason: reason.trim() || undefined,
+      });
+      setCreated(res);
+      remember(res.refundPaymentId);
+      setStatuses((p) => ({ ...p, [res.refundPaymentId]: { ...res, paidAt: null } }));
+      toast.success(`Đã tạo yêu cầu hoàn tiền #${res.refundPaymentId}.`);
+    } catch (e: any) {
+      setCreateError(e?.message || "Không tạo được yêu cầu hoàn tiền.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const addManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d+$/.test(manualId)) return toast.error("Mã hoàn tiền là một số.");
+    const id = Number(manualId);
+    remember(id);
+    setManualId("");
+    await track(id);
+  };
+
+  const refundable = reservation?.payments.filter((p) => p.status === "SUCCEEDED" && p.paymentType !== "REFUND") ?? [];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <RotateCcw className="w-6 h-6 text-primary" />
-            Quản lý Hoàn tiền (Refunds)
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Theo dõi, xử lý và đối soát các giao dịch hoàn trả tiền cọc hoặc bồi hoàn cho khách hàng
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="space-y-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold"><RotateCcw className="h-4 w-4 text-blue-600" /> Tạo yêu cầu hoàn tiền</h3>
+          <form onSubmit={lookup} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <Field label="Mã đặt phòng"><input value={code} onChange={(e) => setCode(e.target.value)} className={inputCls} /></Field>
+            <Field label="Email hoặc SĐT khách"><input value={contact} onChange={(e) => setContact(e.target.value)} className={inputCls} /></Field>
+            <button type="submit" disabled={looking} className={btnPrimary}><Search className="h-4 w-4" /> Xem</button>
+          </form>
+          {looking && <Spinner />}
+          <ErrorBox message={lookupError} />
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={refreshRefunds}
-            disabled={isRefreshing}
-            className="p-2 rounded-lg border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Làm mới"
-          >
-            <RotateCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsManualModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-4 h-4" />
-            Tạo yêu cầu hoàn tiền
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 p-3 bg-card border rounded-xl shadow-sm">
-        <button
-          type="button"
-          onClick={() => setStatusFilter("ALL")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            statusFilter === "ALL"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Tất cả ({refunds.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setStatusFilter("PENDING")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            statusFilter === "PENDING"
-              ? "bg-amber-500 text-white"
-              : "bg-muted text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Chờ xử lý ({refunds.filter((r) => r.status === "PENDING").length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setStatusFilter("SUCCESS")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            statusFilter === "SUCCESS"
-              ? "bg-emerald-600 text-white"
-              : "bg-muted text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Đã hoàn thành ({refunds.filter((r) => r.status === "SUCCESS").length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setStatusFilter("FAILED")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            statusFilter === "FAILED"
-              ? "bg-rose-600 text-white"
-              : "bg-muted text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Thất bại ({refunds.filter((r) => r.status === "FAILED").length})
-        </button>
-      </div>
-
-      {/* Refunds Table */}
-      {filteredRefunds.length === 0 ? (
-        <EmptyState
-          icon={<RotateCcw className="w-6 h-6" />}
-          title="Không có bản ghi hoàn tiền nào"
-          description="Hiện tại không có khoản hoàn tiền nào khớp với bộ lọc."
-        />
-      ) : (
-        <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 text-muted-foreground text-xs uppercase font-semibold border-b">
-                <tr>
-                  <th className="px-4 py-3">Mã phiếu</th>
-                  <th className="px-4 py-3">Mã đặt phòng</th>
-                  <th className="px-4 py-3">Giao dịch gốc</th>
-                  <th className="px-4 py-3 text-right">Số tiền hoàn</th>
-                  <th className="px-4 py-3">Lý do hoàn tiền</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">Thời điểm</th>
-                  <th className="px-4 py-3 text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredRefunds.map((rf) => {
-                  const res = reservations.find((r) => r.id === rf.reservation_id);
-                  const isPending = rf.status === "PENDING";
-                  const isFailed = rf.status === "FAILED";
-
-                  return (
-                    <tr key={rf.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-mono font-bold text-xs text-foreground">
-                        {rf.id}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-foreground">
-                        {res?.code || rf.reservation_id}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {rf.payment_id}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-rose-600 dark:text-rose-400">
-                        <MoneyText amount={rf.amount} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-foreground max-w-xs break-words">
-                        {rf.reason}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {rf.status === "PENDING" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            <Clock className="w-3 h-3" /> Chờ xử lý
-                          </span>
-                        )}
-                        {rf.status === "SUCCESS" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            <CheckCircle2 className="w-3 h-3" /> Thành công
-                          </span>
-                        )}
-                        {rf.status === "FAILED" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                            <XCircle className="w-3 h-3" /> Thất bại
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                        <DateText date={rf.created_at} type="datetime" />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {isPending && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedExecuteId(rf.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
-                          >
-                            <CreditCard className="w-3.5 h-3.5" />
-                            Hoàn tiền ngay
-                          </button>
-                        )}
-                        {isFailed && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setManualResId(rf.reservation_id);
-                              setManualAmount(rf.amount);
-                              setManualReason(`Thử lại hoàn tiền cho yêu cầu ${rf.id}: ${rf.reason}`);
-                              setIsManualModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            Tạo lại yêu cầu
-                          </button>
-                        )}
-                        {rf.status === "SUCCESS" && (
-                          <span className="text-xs text-muted-foreground font-medium">Hoàn tất</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Execute Dialog */}
-      <ConfirmDialog
-        isOpen={!!selectedExecuteId}
-        onClose={() => setSelectedExecuteId(null)}
-        onConfirm={handleExecuteRefund}
-        title="Thực hiện hoàn tiền qua Cổng thanh toán?"
-        description="Số tiền sẽ được chuyển trả về tài khoản hoặc ví gốc của khách hàng qua Payment Gateway. Thao tác này không thể hoàn tác."
-        confirmText="Xác nhận hoàn tiền"
-      />
-
-      {/* Manual Refund Form Modal */}
-      {isManualModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-card border rounded-2xl shadow-xl overflow-hidden p-5">
-            <h3 className="font-semibold text-foreground text-base mb-4 flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-primary" />
-              Lập phiếu hoàn tiền thủ công
-            </h3>
-
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                  Đặt phòng cần hoàn tiền <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={manualResId}
-                  onChange={(e) => setManualResId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-                  required
-                >
-                  {reservations.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.code} ({r.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                  Số tiền hoàn (VND) <span className="text-rose-500">*</span>
-                </label>
-                <NumberInput
-                  min={1000}
-                  step={10000}
-                  value={manualAmount}
-                  onValueChange={(n) => setManualAmount(Math.max(0, n))}
-                  className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                  Lý do hoàn tiền <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={manualReason}
-                  onChange={(e) => setManualReason(e.target.value)}
-                  placeholder="VD: Khách trả phòng sớm, hoàn tiền cọc thừa..."
-                  className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none resize-none"
-                  required
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setIsManualModalOpen(false)}
-                  disabled={isSubmittingManual}
-                  className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-muted transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingManual}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {isSubmittingManual ? "Đang tạo..." : "Tạo yêu cầu hoàn tiền"}
-                </button>
-              </div>
+          {reservation && (
+            <form onSubmit={createRefund} className="space-y-3">
+              <p className="text-xs text-slate-500">
+                {reservation.reservationCode} · {reservation.guest.fullName} · {reservation.status}
+              </p>
+              {refundable.length === 0 ? (
+                <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Đặt phòng này chưa có khoản thanh toán thành công nào để hoàn.</p>
+              ) : (
+                <>
+                  <Field label="Khoản thanh toán cần hoàn">
+                    <select value={paymentId} onChange={(e) => setPaymentId(e.target.value)} className={inputCls}>
+                      {refundable.map((p) => (
+                        <option key={p.reservationPaymentId} value={p.reservationPaymentId}>
+                          #{p.reservationPaymentId} · {p.paymentType} · {vnd(p.amount)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Lý do (tùy chọn)"><input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} className={inputCls} /></Field>
+                  <button type="submit" disabled={creating || !paymentId} className={btnPrimary}>{creating ? "Đang tạo..." : "Tạo yêu cầu hoàn tiền"}</button>
+                </>
+              )}
+              <ErrorBox message={createError} />
+              {created && (
+                <p className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800">
+                  Đã tạo hoàn tiền #{created.refundPaymentId}: {vnd(created.amount)} · trạng thái {created.status}.
+                </p>
+              )}
             </form>
+          )}
+        </Card>
+
+        <Card className="space-y-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold"><RefreshCw className="h-4 w-4 text-blue-600" /> Theo dõi hoàn tiền</h3>
+          <form onSubmit={addManual} className="flex gap-2">
+            <input value={manualId} onChange={(e) => setManualId(e.target.value)} inputMode="numeric" placeholder="Nhập mã hoàn tiền để theo dõi" className={inputCls} />
+            <button type="submit" className={btnGhost}>Thêm</button>
+          </form>
+          {ids.length === 0 && <p className="text-xs text-slate-400">Chưa có yêu cầu hoàn tiền nào được theo dõi trên trình duyệt này.</p>}
+          <div className="space-y-2">
+            {ids.map((id) => {
+              const s = statuses[id];
+              return (
+                <div key={id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 text-xs dark:border-slate-800">
+                  <div>
+                    <p className="font-bold">Hoàn tiền #{id}</p>
+                    {!s ? <span className="text-slate-400">Đang tải...</span> : "error" in s ? (
+                      <span className="text-rose-600">{s.error}</span>
+                    ) : (
+                      <span className="text-slate-500">{s.reservationCode} · {vnd(s.amount)}{s.paidAt && <> · <DateText date={s.paidAt} type="datetime" /></>}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {s && !("error" in s) && <Pill tone={refundTone(s.status)}>{s.status}</Pill>}
+                    <button type="button" onClick={() => track(id)} className={btnGhost}>Làm mới</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
+        </Card>
+      </div>
     </div>
   );
 }

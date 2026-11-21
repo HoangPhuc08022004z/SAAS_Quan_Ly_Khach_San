@@ -1,16 +1,15 @@
-// FR: FR-O09
-// Service: api.listHkIssues, api.createHkIssue, api.resolveHkIssue
+"use client";
 
-import { api } from "@/lib/api";
+// API thật: GET/POST /api/properties/{id}/housekeeping/issues, PATCH .../issues/{issueId}/resolution
+import React from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { HousekeepingIssuesView } from "@/features/housekeeping/components/HousekeepingIssuesView";
 
-export const dynamic = "force-dynamic";
-
-export default async function HousekeepingIssuesPage() {
-  const [issues, rooms] = await Promise.all([
-    api.listHkIssues(),
-    api.listPmsRooms(),
-  ]);
-
-  return <HousekeepingIssuesView initialIssues={issues} rooms={rooms} />;
+export default function HousekeepingIssuesPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Sự Cố Phòng" description="Ghi nhận hỏng hóc, thất lạc trong phòng và theo dõi cách xử lý." />
+      <HousekeepingIssuesView />
+    </div>
+  );
 }
