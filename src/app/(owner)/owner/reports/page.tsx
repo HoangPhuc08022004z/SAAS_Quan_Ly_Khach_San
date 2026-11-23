@@ -1,22 +1,18 @@
-// FR: FR-O44, FR-O52
-// Service: api.listOwnerReports, api.approveReport
+"use client";
+
+// API: GET /api/owner/daily-statistics (xem OwnerReportsView)
 import React from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OwnerReportsView } from "@/features/owner-reports/components/OwnerReportsView";
-import { api } from "@/lib/api";
 
-export const dynamic = "force-dynamic";
-
-export default async function OwnerReportsPage() {
-  const reports = await api.listOwnerReports();
-
+export default function OwnerReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Báo Cáo Hoạt Động & Chốt Ngày Các Khách Sạn"
-        description="Giám sát số liệu Night Audit, doanh thu phòng, F&B và thực hiện xác nhận báo cáo định kỳ cho các cơ sở."
+        title="Báo cáo Night Audit các khách sạn"
+        description="Số liệu thống kê hằng ngày của mọi khách sạn trong tenant. Manager của từng khách sạn là người điều chỉnh và chốt báo cáo."
       />
-      <OwnerReportsView initialReports={reports} />
+      <OwnerReportsView />
     </div>
   );
 }

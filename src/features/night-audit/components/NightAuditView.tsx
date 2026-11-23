@@ -1,324 +1,284 @@
 "use client";
 
-import React, { useState } from "react";
-import { DailyStatistics } from "@/lib/api/types";
-import { api } from "@/lib/api";
-import { MoneyText } from "@/components/data/MoneyText";
-import { DateText } from "@/components/data/DateText";
-import { AdjustStatsDialog } from "./AdjustStatsDialog";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+// API (token nhân viên, role MANAGER): GET .../daily-statistics?fromDate=&toDate=,
+//   PATCH .../daily-statistics/{businessDate} (điều chỉnh), POST .../daily-statistics/{businessDate}/confirm
+// Báo cáo do scheduler tự sinh lúc 17:00 (giờ Việt Nam) ở trạng thái REVIEWING; đã CONFIRMED thì không sửa/xác nhận lại được (409).
+import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  Moon,
-  Calendar,
-  CheckCircle2,
-  Lock,
-  Edit3,
-  RotateCcw,
-  Users,
-  BedDouble,
-  DollarSign,
-  Utensils,
-  Play,
-  ShieldCheck,
-  AlertTriangle,
-} from "lucide-react";
+import { Moon, RefreshCw, Lock, AlertTriangle, CheckCircle2, Edit3 } from "lucide-react";
+import { nightAuditApi, type DailyStatisticsReport, type AdjustDailyStatisticsInput } from "@/lib/api";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { Card, ErrorBox, Field, NoProperty, Pill, Spinner, btnGhost, btnPrimary, inputCls, todayIso, usePmsProperty, vnd } from "@/features/pms-ops/ui";
 
-interface NightAuditViewProps {
-  initialStats: DailyStatistics[];
-}
+type MetricKey = Exclude<keyof AdjustDailyStatisticsInput, "adjustmentReason">;
 
-export function NightAuditView({ initialStats }: NightAuditViewProps) {
-  const [statsList, setStatsList] = useState(initialStats);
-  const [selectedDate, setSelectedDate] = useState(
-    initialStats[0]?.stat_date || "2026-10-11"
-  );
-  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
-  const [showConfirmAudit, setShowConfirmAudit] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [isRunningJob, setIsRunningJob] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+const METRICS: { key: MetricKey; label: string; money?: boolean }[] = [
+  { key: "guestCount", label: "Số khách" },
+  { key: "occupiedRoomCount", label: "Phòng có khách" },
+  { key: "availableRoomCount", label: "Phòng trống" },
+  { key: "successfulReservationCount", label: "Đặt phòng thành công" },
+  { key: "noShowCount", label: "No-show" },
+  { key: "cancelledReservationCount", label: "Đặt phòng đã hủy" },
+  { key: "depositAmount", label: "Tiền cọc phải thu", money: true },
+  { key: "depositCollected", label: "Tiền cọc đã thu", money: true },
+  { key: "refundTotal", label: "Tổng hoàn tiền", money: true },
+  { key: "expectedRoomRevenue", label: "Doanh thu phòng dự kiến", money: true },
+  { key: "fnbRevenue", label: "Doanh thu F&B", money: true },
+  { key: "fnbExpense", label: "Chi phí F&B", money: true },
+];
 
-  const currentStats = statsList.find((s) => s.stat_date === selectedDate) || statsList[0];
+export function NightAuditView() {
+  const { propertyId } = usePmsProperty();
+  const [from, setFrom] = useState(todayIso(-14));
+  const [to, setTo] = useState(todayIso());
+  const [list, setList] = useState<DailyStatisticsReport[] | null>(null);
+  const [selected, setSelected] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [adjusting, setAdjusting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  async function refreshStats() {
+  const load = useCallback(async () => {
+    if (!propertyId) return;
+    if (from > to) return setError("Từ ngày không được sau đến ngày.");
+    setLoading(true);
+    setError(null);
     try {
-      setIsRefreshing(true);
-      const res = await api.listDailyStats();
-      setStatsList(res);
-    } catch (err: any) {
-      toast.error(err.message || "Không thể tải lại số liệu thống kê");
+      const res = await nightAuditApi.list(propertyId, from, to);
+      setList(res);
+      setSelected((cur) => (res.some((r) => r.businessDate === cur) ? cur : res[0]?.businessDate ?? ""));
+    } catch (e: any) {
+      setList(null);
+      setError(e?.message || "Không tải được báo cáo Night Audit.");
     } finally {
-      setIsRefreshing(false);
+      setLoading(false);
     }
-  }
+  }, [propertyId, from, to]);
 
-  async function handleRunDailyJob() {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!propertyId) return <NoProperty />;
+
+  const current = list?.find((r) => r.businessDate === selected);
+  const confirmed = current?.status === "CONFIRMED";
+
+  const replace = (r: DailyStatisticsReport) => setList((l) => l?.map((x) => (x.businessDate === r.businessDate ? r : x)) ?? l);
+
+  const confirm = async () => {
+    if (!current) return;
+    setBusy(true);
     try {
-      setIsRunningJob(true);
-      await api.runDailyStatsJob(selectedDate);
-      toast.success(`Đã tổng hợp số liệu thống kê tự động cho ngày ${selectedDate}!`);
-      refreshStats();
-    } catch (err: any) {
-      toast.error(err.message || "Tác vụ chạy thống kê thất bại");
+      const res = await nightAuditApi.confirm(propertyId, current.businessDate);
+      replace(res.dailyStatistics);
+      toast.success(res.message || `Đã chốt số liệu ngày ${current.businessDate}.`);
+      setConfirmOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Không thể xác nhận báo cáo.");
+      setConfirmOpen(false);
     } finally {
-      setIsRunningJob(false);
+      setBusy(false);
     }
-  }
-
-  async function handleConfirmAudit() {
-    if (!currentStats) return;
-    try {
-      setIsConfirming(true);
-      await api.confirmDailyStats(currentStats.id);
-      toast.success(`Đã chốt sổ thành công số liệu ngày ${currentStats.stat_date}!`);
-      setShowConfirmAudit(false);
-      refreshStats();
-    } catch (err: any) {
-      toast.error(err.message || "Không thể chốt số liệu");
-    } finally {
-      setIsConfirming(false);
-    }
-  }
-
-  const isConfirmed = currentStats?.status === "CONFIRMED";
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Moon className="w-6 h-6 text-indigo-500" />
-            Kiểm toán Đêm & Chốt ngày (Night Audit)
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Đối soát số liệu lưu trú, doanh thu phòng, F&B, kiểm tra No-Show và khóa sổ kế toán ngày
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={refreshStats}
-            disabled={isRefreshing}
-            className="p-2 rounded-lg border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Làm mới"
-          >
-            <RotateCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </button>
-
-          <button
-            type="button"
-            disabled={isRunningJob}
-            onClick={handleRunDailyJob}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30 transition-colors disabled:opacity-50"
-          >
-            <Play className={`w-3.5 h-3.5 ${isRunningJob ? "animate-spin" : ""}`} />
-            {isRunningJob ? "Đang chạy..." : "Tổng hợp lại số liệu"}
-          </button>
-        </div>
+    <div className="space-y-5">
+      <div>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <Moon className="h-6 w-6 text-indigo-500" /> Kiểm toán đêm &amp; chốt ngày (Night Audit)
+        </h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Báo cáo được hệ thống tự tạo lúc 17:00 mỗi ngày (trạng thái REVIEWING). Manager đối soát, điều chỉnh nếu cần rồi xác nhận.
+        </p>
       </div>
 
-      {/* Date Selector and Audit Status Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-muted-foreground" />
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Ngày kiểm toán
-            </label>
-            <select
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="text-sm font-bold bg-transparent border-none focus:outline-none cursor-pointer text-foreground"
-            >
-              {statsList.map((s) => (
-                <option key={s.id} value={s.stat_date}>
-                  {s.stat_date} ({s.status === "CONFIRMED" ? "Đã chốt" : "Chờ xác nhận"})
-                </option>
-              ))}
-            </select>
-          </div>
+      <Card>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <Field label="Từ ngày"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls} /></Field>
+          <Field label="Đến ngày"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} /></Field>
+          <button type="button" onClick={load} disabled={loading} className={btnPrimary}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Tải báo cáo
+          </button>
         </div>
+      </Card>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <span className="text-[11px] text-muted-foreground block">Trạng thái chốt sổ:</span>
-            {isConfirmed ? (
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                <Lock className="w-3.5 h-3.5" /> Đã chốt số liệu
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-500">
-                <AlertTriangle className="w-3.5 h-3.5" /> Chờ xác nhận
-              </span>
-            )}
-          </div>
+      {loading && !list && <Spinner label="Đang tải báo cáo..." />}
+      <ErrorBox message={error} />
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAdjustOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border bg-card hover:bg-muted text-foreground transition-colors"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              Điều chỉnh số liệu
-            </button>
+      {list && list.length === 0 && (
+        <p className="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500 dark:bg-slate-900">Không có báo cáo nào trong khoảng ngày này.</p>
+      )}
 
-            {!isConfirmed && (
+      {list && list.length > 0 && (
+        <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+          <Card className="space-y-1 p-3">
+            {list.map((r) => (
               <button
+                key={r.dailyStatisticsId}
                 type="button"
-                onClick={() => setShowConfirmAudit(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                onClick={() => {
+                  setSelected(r.businessDate);
+                  setAdjusting(false);
+                }}
+                className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold ${
+                  r.businessDate === selected ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Chốt sổ ngày
+                {r.businessDate}
+                <Pill tone={r.status === "CONFIRMED" ? "green" : "amber"}>{r.status === "CONFIRMED" ? "Đã chốt" : "Chờ xác nhận"}</Pill>
               </button>
-            )}
-          </div>
-        </div>
-      </div>
+            ))}
+          </Card>
 
-      {/* Lock Notice if confirmed */}
-      {isConfirmed && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-400 flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Số liệu ngày {currentStats.stat_date} đã được chốt chính thức (Audit Locked):</span>
-            <div className="mt-0.5 text-muted-foreground">
-              Toàn bộ chỉ số doanh thu và buồng phòng của ngày đã được đóng băng. Mọi thay đổi tiếp theo bắt buộc phải qua quy trình điều chỉnh kiểm toán (Audit Adjustment) kèm lý do giải trình.
-            </div>
-          </div>
-        </div>
-      )}
+          {current && (
+            <div className="space-y-4">
+              <Card className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">Ngày nghiệp vụ {current.businessDate}</p>
+                    {confirmed ? (
+                      <p className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                        <Lock className="h-3.5 w-3.5" /> Đã chốt{current.confirmedByName ? ` bởi ${current.confirmedByName}` : ""}
+                        {current.confirmedAt ? ` lúc ${new Date(current.confirmedAt).toLocaleString("vi-VN")}` : ""}
+                      </p>
+                    ) : (
+                      <p className="flex items-center gap-1 text-xs font-semibold text-amber-600">
+                        <AlertTriangle className="h-3.5 w-3.5" /> Đang chờ xác nhận (REVIEWING)
+                      </p>
+                    )}
+                  </div>
+                  {!confirmed && (
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setAdjusting((v) => !v)} className={btnGhost}>
+                        <Edit3 className="h-3.5 w-3.5" /> Điều chỉnh số liệu
+                      </button>
+                      <button type="button" onClick={() => setConfirmOpen(true)} className={btnPrimary}>
+                        <CheckCircle2 className="h-4 w-4" /> Chốt sổ ngày
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-      {/* Stats Grid */}
-      {currentStats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Guest and Room Count */}
-          <div className="p-4 rounded-xl border bg-card shadow-sm space-y-1">
-            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-              <span>Tổng số khách</span>
-              <Users className="w-4 h-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {currentStats.total_guests} khách
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Đang lưu trú trong khách sạn
-            </p>
-          </div>
+                <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
+                  {METRICS.map((m) => (
+                    <div key={m.key}>
+                      <dt className="text-slate-400">{m.label}</dt>
+                      <dd className="text-sm font-bold">{m.money ? vnd(current[m.key]) : current[m.key]}</dd>
+                    </div>
+                  ))}
+                </dl>
 
-          <div className="p-4 rounded-xl border bg-card shadow-sm space-y-1">
-            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-              <span>Phòng có khách / Trống</span>
-              <BedDouble className="w-4 h-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {currentStats.occupied_rooms} / {currentStats.available_rooms}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Công suất phòng:{" "}
-              {currentStats.available_rooms + currentStats.occupied_rooms > 0
-                ? Math.round(
-                    (currentStats.occupied_rooms /
-                      (currentStats.available_rooms + currentStats.occupied_rooms)) *
-                      100
-                  )
-                : 0}
-              %
-            </p>
-          </div>
+                {current.adjustmentReason && (
+                  <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                    <b>Lý do điều chỉnh gần nhất:</b> {current.adjustmentReason}
+                  </p>
+                )}
+              </Card>
 
-          <div className="p-4 rounded-xl border bg-card shadow-sm space-y-1">
-            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-              <span>Đặt phòng thành công</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              {adjusting && !confirmed && (
+                <AdjustForm
+                  key={current.businessDate}
+                  report={current}
+                  onCancel={() => setAdjusting(false)}
+                  onSubmit={async (data) => {
+                    const res = await nightAuditApi.adjust(propertyId, current.businessDate, data);
+                    replace(res.dailyStatistics);
+                    toast.success(res.message || "Đã điều chỉnh số liệu.");
+                    setAdjusting(false);
+                  }}
+                />
+              )}
             </div>
-            <div className="text-2xl font-bold text-foreground">
-              {currentStats.successful_reservations} đơn
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              No-Show: {currentStats.noshow_count} | Hủy: {currentStats.cancelled_count}
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl border bg-card shadow-sm space-y-1">
-            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-              <span>Tiền cọc đã thu</span>
-              <DollarSign className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              <MoneyText amount={currentStats.deposit_collected} />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Hoàn tiền: {currentStats.refund_count} giao dịch
-            </p>
-          </div>
-
-          {/* Revenue and F&B */}
-          <div className="p-4 rounded-xl border bg-card shadow-sm space-y-1 sm:col-span-2">
-            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-              <span>Doanh thu phòng dự kiến</span>
-              <DollarSign className="w-4 h-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              <MoneyText amount={currentStats.expected_room_revenue} />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Căn cứ theo giá phòng và hợp đồng lưu trú thực tế trong ngày
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl border bg-card shadow-sm space-y-1 sm:col-span-2">
-            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-              <span>Ẩm thực (F&B): Doanh thu & Chi phí</span>
-              <Utensils className="w-4 h-4 text-primary" />
-            </div>
-            <div className="flex items-center gap-4">
-              <div>
-                <span className="text-xs text-muted-foreground block">Doanh thu:</span>
-                <span className="text-lg font-bold text-foreground">
-                  <MoneyText amount={currentStats.fnb_revenue} />
-                </span>
-              </div>
-              <div className="border-l pl-4">
-                <span className="text-xs text-muted-foreground block">Chi phí vốn:</span>
-                <span className="text-lg font-bold text-rose-500">
-                  <MoneyText amount={currentStats.fnb_cost} />
-                </span>
-              </div>
-              <div className="border-l pl-4">
-                <span className="text-xs text-muted-foreground block">Lợi nhuận gộp:</span>
-                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                  <MoneyText amount={Math.max(0, currentStats.fnb_revenue - currentStats.fnb_cost)} />
-                </span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Adjust Dialog */}
-      {currentStats && (
-        <AdjustStatsDialog
-          stats={currentStats}
-          isOpen={isAdjustOpen}
-          onClose={() => setIsAdjustOpen(false)}
-          onSuccess={refreshStats}
-        />
-      )}
-
-      {/* Confirm Audit Dialog */}
       <ConfirmDialog
-        isOpen={showConfirmAudit}
-        onClose={() => setShowConfirmAudit(false)}
-        onConfirm={handleConfirmAudit}
-        title={`Chốt sổ Night Audit cho ngày ${currentStats?.stat_date}?`}
-        description="Thao tác chốt số liệu sẽ khóa toàn bộ báo cáo doanh thu và buồng phòng của ngày hôm nay. Bạn có chắc chắn muốn hoàn tất chốt sổ kế toán không?"
-        confirmText={isConfirming ? "Đang chốt sổ..." : "Xác nhận chốt sổ"}
+        isOpen={confirmOpen}
+        title={`Chốt sổ Night Audit ngày ${current?.businessDate ?? ""}?`}
+        description="Báo cáo chuyển sang CONFIRMED và không thể điều chỉnh hay xác nhận lại. Bạn có chắc chắn?"
+        confirmText="Xác nhận chốt sổ"
+        isLoading={busy}
+        onConfirm={confirm}
+        onClose={() => setConfirmOpen(false)}
       />
     </div>
+  );
+}
+
+function AdjustForm({
+  report,
+  onSubmit,
+  onCancel,
+}: {
+  report: DailyStatisticsReport;
+  onSubmit: (data: AdjustDailyStatisticsInput) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [values, setValues] = useState<Partial<Record<MetricKey, string>>>({});
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const data: AdjustDailyStatisticsInput = { adjustmentReason: reason.trim() };
+    let changed = 0;
+    for (const m of METRICS) {
+      const raw = values[m.key];
+      if (raw === undefined || raw === "") continue;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) return setError(`"${m.label}" phải là số không âm.`);
+      if (n !== Number(report[m.key])) {
+        data[m.key] = n;
+        changed++;
+      }
+    }
+    if (changed === 0) return setError("Chưa có chỉ số nào thay đổi.");
+    if (!data.adjustmentReason) return setError("Nhập lý do điều chỉnh.");
+    if (data.adjustmentReason.length > 2000) return setError("Lý do tối đa 2000 ký tự.");
+    setSaving(true);
+    setError(null);
+    try {
+      await onSubmit(data);
+    } catch (err: any) {
+      setError(err?.message || "Không thể điều chỉnh số liệu.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <form onSubmit={submit} className="space-y-4">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Điều chỉnh số liệu</h3>
+        <p className="text-[11px] text-slate-400">Chỉ nhập các chỉ số cần sửa; ô để trống sẽ được giữ nguyên.</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {METRICS.map((m) => (
+            <Field key={m.key} label={m.label}>
+              <input
+                type="number"
+                min={0}
+                step={m.money ? "any" : 1}
+                value={values[m.key] ?? ""}
+                placeholder={String(report[m.key])}
+                onChange={(e) => setValues((v) => ({ ...v, [m.key]: e.target.value }))}
+                className={inputCls}
+              />
+            </Field>
+          ))}
+        </div>
+        <Field label="Lý do điều chỉnh (bắt buộc)">
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={2000} className={inputCls} />
+        </Field>
+        <ErrorBox message={error} />
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className={btnGhost}>Hủy</button>
+          <button type="submit" disabled={saving} className={btnPrimary}>{saving ? "Đang lưu..." : "Lưu điều chỉnh"}</button>
+        </div>
+      </form>
+    </Card>
   );
 }

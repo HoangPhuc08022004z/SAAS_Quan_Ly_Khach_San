@@ -1,6 +1,6 @@
 /**
  * Client cho các API vận hành PMS (check-in, buồng phòng, no-show, hủy/hoàn tiền, F&B của khách)
- * và cấu hình cổng thanh toán của Owner — theo SaaS_PMS_API_openapi.yaml (commit b2fb474).
+ * và cấu hình cổng thanh toán của Owner — theo SaaS_PMS_API_openapi.yaml (commit 82f95b3, 107 endpoint).
  * Token nhân viên PMS (pmsBearer) hoặc Owner (saasBearer) được gắn tự động bởi saasApi.request.
  */
 import { saasApi } from "./saas-api";
@@ -98,6 +98,179 @@ export const checkInApi = {
   /** GET /api/properties/{propertyId}/check-in/rooms/{roomId}/readiness */
   readiness: (propertyId: number | string, roomId: number | string) =>
     request<RoomReadiness>(`/api/properties/${propertyId}/check-in/rooms/${roomId}/readiness`),
+};
+
+// ============================================================================
+// CHECK-OUT  (token nhân viên; propertyId trên đường dẫn phải trùng propertyId trong token)
+// Quyền: balance/folio = CHECKOUT_VIEW, balance-payment = PAYMENT_CREATE, confirm = CHECKOUT_EXECUTE.
+// Lỗi 409: đặt phòng không ở CHECKED_IN (hoặc còn balanceDue > 0 khi confirm).
+// ============================================================================
+
+export interface CheckoutBalance {
+  reservationId: number;
+  reservationCode: string;
+  reservationStatus: string;
+  currency: string;
+  roomAmount: number;
+  folioTotal: number;
+  totalCharge: number;
+  totalCapturedAmount: number;
+  totalRefundedAmount: number;
+  pendingRefundAmount: number;
+  netPaidAmount: number;
+  balanceDue: number;
+  overpaidAmount: number;
+}
+
+export interface CheckoutFolioItem {
+  folioId: number;
+  service: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  serviceData?: string | null;
+}
+
+export interface CheckoutFolio {
+  reservationId: number;
+  reservationCode: string;
+  reservationStatus: string;
+  currency: string;
+  items: CheckoutFolioItem[];
+  folioTotal: number;
+}
+
+export interface CheckoutBalancePayment {
+  reservationPaymentId: number;
+  reservationCode: string;
+  paymentType: "DEPOSIT" | "BALANCE" | "REFUND";
+  amount: number;
+  currency: string;
+  status: string;
+  reusedExistingAttempt: boolean;
+}
+
+export interface CheckOutConfirmed {
+  reservationId: number;
+  reservationCode: string;
+  reservationStatus: string;
+  currency: string;
+  totalCharge: number;
+  netPaidAmount: number;
+  balanceDue: number;
+  rooms: { roomId: number; roomNumber: string; previousStatus: string; currentStatus: string }[];
+}
+
+export const checkOutApi = {
+  /** GET /api/properties/{propertyId}/check-out/reservations/{reservationCode}/balance (CHECKOUT_VIEW) */
+  balance: (propertyId: number | string, reservationCode: string) =>
+    request<CheckoutBalance>(`/api/properties/${propertyId}/check-out/reservations/${enc(reservationCode)}/balance`),
+
+  /** GET /api/properties/{propertyId}/check-out/reservations/{reservationCode}/folio (CHECKOUT_VIEW) */
+  folio: (propertyId: number | string, reservationCode: string) =>
+    request<CheckoutFolio>(`/api/properties/${propertyId}/check-out/reservations/${enc(reservationCode)}/folio`),
+
+  /** POST /api/properties/{propertyId}/check-out/reservations/{reservationCode}/balance-payment — không có body (PAYMENT_CREATE) */
+  createBalancePayment: (propertyId: number | string, reservationCode: string) =>
+    request<CheckoutBalancePayment>(
+      `/api/properties/${propertyId}/check-out/reservations/${enc(reservationCode)}/balance-payment`,
+      send("POST")
+    ),
+
+  /** POST /api/properties/{propertyId}/check-out/reservations/{reservationCode}/confirm — không có body (CHECKOUT_EXECUTE) */
+  confirm: (propertyId: number | string, reservationCode: string) =>
+    request<CheckOutConfirmed>(
+      `/api/properties/${propertyId}/check-out/reservations/${enc(reservationCode)}/confirm`,
+      send("POST")
+    ),
+};
+
+// ============================================================================
+// NIGHT AUDIT / THỐNG KÊ HẰNG NGÀY
+// Manager (token PMS, role MANAGER + NIGHT_AUDIT_VIEW/ADJUST/CONFIRM) và Owner (token SaaS, PROPERTY_DAILY_STATISTICS_VIEW).
+// Báo cáo do scheduler tự sinh lúc 17:00 (Asia/Ho_Chi_Minh) ở trạng thái REVIEWING; chỉ REVIEWING mới điều chỉnh/xác nhận được (409 nếu đã CONFIRMED).
+// ============================================================================
+
+export type DailyStatisticsStatus = "REVIEWING" | "CONFIRMED";
+
+export interface DailyStatisticsReport {
+  dailyStatisticsId: number;
+  propertyId: number;
+  businessDate: string;
+  guestCount: number;
+  occupiedRoomCount: number;
+  availableRoomCount: number;
+  successfulReservationCount: number;
+  noShowCount: number;
+  cancelledReservationCount: number;
+  depositAmount: number;
+  depositCollected: number;
+  refundTotal: number;
+  expectedRoomRevenue: number;
+  fnbRevenue: number;
+  fnbExpense: number;
+  status: DailyStatisticsStatus;
+  adjustmentReason?: string | null;
+  confirmedBy?: number | null;
+  confirmedByName?: string | null;
+  confirmedAt?: string | null;
+}
+
+/** Chỉ gửi chỉ số cần sửa (khác null); bắt buộc có adjustmentReason (1–2000 ký tự) */
+export interface AdjustDailyStatisticsInput {
+  guestCount?: number;
+  occupiedRoomCount?: number;
+  availableRoomCount?: number;
+  successfulReservationCount?: number;
+  noShowCount?: number;
+  cancelledReservationCount?: number;
+  depositAmount?: number;
+  depositCollected?: number;
+  refundTotal?: number;
+  expectedRoomRevenue?: number;
+  fnbRevenue?: number;
+  fnbExpense?: number;
+  adjustmentReason: string;
+}
+
+export interface DailyStatisticsResult {
+  message?: string;
+  dailyStatistics: DailyStatisticsReport;
+}
+
+export interface TenantDailyStatistics {
+  tenantId: number;
+  totalReports: number;
+  dailyStatistics: DailyStatisticsReport[];
+}
+
+export const nightAuditApi = {
+  /** [MANAGER] GET /api/properties/{propertyId}/daily-statistics?fromDate=&toDate= (cả hai bắt buộc, yyyy-MM-dd) */
+  list: (propertyId: number | string, fromDate: string, toDate: string) =>
+    request<DailyStatisticsReport[]>(`/api/properties/${propertyId}/daily-statistics${query({ fromDate, toDate })}`),
+
+  /** [MANAGER] PATCH /api/properties/{propertyId}/daily-statistics/{businessDate} (NIGHT_AUDIT_ADJUST) */
+  adjust: (propertyId: number | string, businessDate: string, data: AdjustDailyStatisticsInput) =>
+    request<DailyStatisticsResult>(
+      `/api/properties/${propertyId}/daily-statistics/${enc(businessDate)}`,
+      send("PATCH", data)
+    ),
+
+  /** [MANAGER] POST /api/properties/{propertyId}/daily-statistics/{businessDate}/confirm — không có body (NIGHT_AUDIT_CONFIRM) */
+  confirm: (propertyId: number | string, businessDate: string) =>
+    request<DailyStatisticsResult>(
+      `/api/properties/${propertyId}/daily-statistics/${enc(businessDate)}/confirm`,
+      send("POST")
+    ),
+};
+
+export const ownerStatisticsApi = {
+  /**
+   * [OWNER] GET /api/owner/daily-statistics — mọi tham số tùy chọn.
+   * Dùng businessDate HOẶC (fromDate + toDate), không trộn; 400 nếu sai.
+   */
+  view: (params: { propertyId?: number | string; businessDate?: string; fromDate?: string; toDate?: string } = {}) =>
+    request<TenantDailyStatistics>(`/api/owner/daily-statistics${query({ ...params })}`),
 };
 
 // ============================================================================

@@ -1,238 +1,151 @@
 "use client";
 
-import React, { useState } from "react";
-import { DataTable, Column } from "@/components/data/DataTable";
-import { StatusBadge } from "@/components/data/StatusBadge";
-import { MoneyText } from "@/components/data/MoneyText";
-import { DateText } from "@/components/data/DateText";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
-import {
-  FileCheck2,
-  CheckCircle2,
-  ExternalLink,
-  X,
-  Building,
-  TrendingUp,
-  Bed,
-  Users,
-} from "lucide-react";
+// API (token Owner): GET /api/owner/daily-statistics?propertyId=&businessDate= | &fromDate=&toDate=
+// Chỉ xem: việc điều chỉnh và xác nhận báo cáo do Manager của từng khách sạn thực hiện (Night Audit).
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { ownerStatisticsApi, propertyApi, type ApiProperty, type DailyStatisticsReport, type TenantDailyStatistics } from "@/lib/api";
+import { Card, ErrorBox, Field, Pill, Spinner, btnPrimary, inputCls, todayIso, vnd } from "@/features/pms-ops/ui";
 
-export function OwnerReportsView({ initialReports }: { initialReports: any[] }) {
-  const [reports, setReports] = useState<any[]>(initialReports);
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [selectedReport, setSelectedReport] = useState<any | null>(null);
-  const [isApproving, setIsApproving] = useState(false);
+type Mode = "all" | "day" | "range";
 
-  const filtered = reports.filter((r) => {
-    if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
-    return true;
-  });
+export function OwnerReportsView() {
+  const [properties, setProperties] = useState<ApiProperty[]>([]);
+  const [propertyId, setPropertyId] = useState("");
+  const [mode, setMode] = useState<Mode>("range");
+  const [day, setDay] = useState(todayIso());
+  const [from, setFrom] = useState(todayIso(-14));
+  const [to, setTo] = useState(todayIso());
+  const [data, setData] = useState<TenantDailyStatistics | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleApprove = async (reportId: string) => {
-    setIsApproving(true);
+  useEffect(() => {
+    propertyApi.list().then(setProperties).catch(() => setProperties([]));
+  }, []);
+
+  const names = useMemo(() => Object.fromEntries(properties.map((p) => [String(p.propertyId), p.name])), [properties]);
+
+  const load = useCallback(async () => {
+    if (mode === "range" && from > to) return setError("Từ ngày không được sau đến ngày.");
+    setLoading(true);
+    setError(null);
     try {
-      await api.approveReport(reportId);
-      setReports((prev) =>
-        prev.map((r) => (r.id === reportId ? { ...r, status: "CONFIRMED" } : r))
+      setData(
+        await ownerStatisticsApi.view({
+          propertyId: propertyId || undefined,
+          ...(mode === "day" ? { businessDate: day } : mode === "range" ? { fromDate: from, toDate: to } : {}),
+        })
       );
-      if (selectedReport?.id === reportId) {
-        setSelectedReport((prev: any) => ({ ...prev, status: "CONFIRMED" }));
-      }
-      toast.success("Đã phê duyệt và xác nhận báo cáo doanh thu thành công!");
-    } catch {
-      toast.error("Không thể xác nhận báo cáo.");
+    } catch (e: any) {
+      setData(null);
+      setError(e?.message || "Không tải được báo cáo.");
     } finally {
-      setIsApproving(false);
+      setLoading(false);
     }
-  };
+  }, [mode, propertyId, day, from, to]);
 
-  const columns: Column<any>[] = [
-    {
-      key: "date",
-      header: "Ngày chốt số liệu",
-      sortable: true,
-      render: (r) => (
-        <div className="font-bold text-xs text-slate-900 dark:text-white">
-          <DateText date={r.date} />
-        </div>
-      ),
-    },
-    {
-      key: "property_id",
-      header: "Mã cơ sở",
-      render: (r) => <span className="font-mono text-xs text-slate-500">{r.property_id}</span>,
-    },
-    {
-      key: "occupancy_rate",
-      header: "Công suất phòng",
-      sortable: true,
-      render: (r) => (
-        <span className="font-bold text-xs text-blue-600">
-          {r.occupancy_rate || Math.round(((r.occupied_rooms || 15) / 22) * 100)}%
-        </span>
-      ),
-    },
-    {
-      key: "expected_room_revenue",
-      header: "Doanh thu phòng",
-      sortable: true,
-      render: (r) => <MoneyText amount={r.expected_room_revenue} className="text-xs font-semibold" />,
-    },
-    {
-      key: "fnb_revenue",
-      header: "Doanh thu F&B",
-      sortable: true,
-      render: (r) => <MoneyText amount={r.fnb_revenue} className="text-xs font-semibold text-amber-600" />,
-    },
-    {
-      key: "status",
-      header: "Trạng thái chốt",
-      render: (r) => <StatusBadge type="daily_statistics" status={r.status} />,
-    },
-    {
-      key: "actions",
-      header: "Chi tiết",
-      render: (r) => (
-        <button
-          onClick={() => setSelectedReport(r)}
-          className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
-        >
-          <span>Xem chi tiết</span>
-          <ExternalLink className="w-3 h-3" />
-        </button>
-      ),
-    },
-  ];
+  useEffect(() => {
+    void load();
+    // chỉ tải lần đầu; các lần sau bấm nút "Xem báo cáo"
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const rows: DailyStatisticsReport[] = data?.dailyStatistics ?? [];
+  const total = (k: "expectedRoomRevenue" | "fnbRevenue" | "depositCollected") => rows.reduce((n, r) => n + Number(r[k] ?? 0), 0);
 
   return (
-    <div className="space-y-4 max-w-6xl">
-      <div className="flex items-center gap-2">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-        >
-          <option value="ALL">Tất cả trạng thái</option>
-          <option value="CONFIRMED">Đã chốt (CONFIRMED)</option>
-          <option value="UNCONFIRMED">Chờ xác nhận (UNCONFIRMED)</option>
-          <option value="ADJUSTED">Có điều chỉnh (ADJUSTED)</option>
-        </select>
-      </div>
-
-      <DataTable columns={columns} data={filtered} exportFileName="bao-cao-doanh-thu-owner" />
-
-      {/* Report Detail Drawer */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white h-full shadow-2xl p-6 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between overflow-y-auto">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <FileCheck2 className="w-5 h-5 text-blue-500" />
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                      Báo Cáo Ngày: {selectedReport.date}
-                    </h3>
-                    <p className="text-[11px] text-slate-400">Cơ sở: {selectedReport.property_id}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedReport(null)}
-                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Trạng thái:</span>
-                <StatusBadge type="daily_statistics" status={selectedReport.status} />
-              </div>
-
-              {/* Key Indicators */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40">
-                  <span className="text-[11px] text-slate-400">Phòng có khách</span>
-                  <div className="font-bold text-slate-900 dark:text-white mt-0.5">
-                    {selectedReport.occupied_rooms} phòng
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40">
-                  <span className="text-[11px] text-slate-400">Tổng khách lưu trú</span>
-                  <div className="font-bold text-slate-900 dark:text-white mt-0.5">
-                    {selectedReport.total_guests} khách
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40">
-                  <span className="text-[11px] text-slate-400">Đơn thành công</span>
-                  <div className="font-bold text-slate-900 dark:text-white mt-0.5">
-                    {selectedReport.successful_bookings} đơn
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40">
-                  <span className="text-[11px] text-slate-400">Khách vắng mặt (No-Show)</span>
-                  <div className="font-bold text-rose-600 mt-0.5">{selectedReport.no_show_count} lượt</div>
-                </div>
-              </div>
-
-              {/* Financial Summary */}
-              <div className="space-y-2 text-xs">
-                <h4 className="font-bold text-slate-800 dark:text-slate-200">Tổng hợp doanh thu & chi phí:</h4>
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Doanh thu phòng dự kiến:</span>
-                  <MoneyText amount={selectedReport.expected_room_revenue} className="font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Doanh thu ẩm thực F&B:</span>
-                  <MoneyText amount={selectedReport.fnb_revenue} className="font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Chi phí nguyên liệu F&B:</span>
-                  <MoneyText amount={selectedReport.fnb_cost} className="font-semibold text-rose-600" />
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Tiền cọc đã thu:</span>
-                  <MoneyText amount={selectedReport.deposit_collected} className="font-semibold text-blue-600" />
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Tiền hoàn trả khách (Refund):</span>
-                  <MoneyText amount={selectedReport.refund_amount} className="font-semibold text-slate-600" />
-                </div>
-              </div>
-
-              {selectedReport.adjustment_reason && (
-                <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-900 dark:text-amber-200 space-y-1">
-                  <span className="font-bold">Lý do điều chỉnh số liệu:</span>
-                  <p>{selectedReport.adjustment_reason}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
-              {selectedReport.status !== "CONFIRMED" && (
-                <button
-                  type="button"
-                  onClick={() => handleApprove(selectedReport.id)}
-                  disabled={isApproving}
-                  className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{isApproving ? "Đang xác nhận..." : "Xác nhận báo cáo (Owner)"}</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setSelectedReport(null)}
-                className="py-2.5 px-4 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
+    <div className="space-y-5">
+      <Card>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr_1fr_auto] lg:items-end">
+          <Field label="Khách sạn">
+            <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className={inputCls}>
+              <option value="">Tất cả khách sạn</option>
+              {properties.map((p) => (
+                <option key={p.propertyId} value={p.propertyId}>{p.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Lọc theo">
+            <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} className={inputCls}>
+              <option value="range">Khoảng ngày</option>
+              <option value="day">Một ngày</option>
+              <option value="all">Tất cả</option>
+            </select>
+          </Field>
+          {mode === "range" && (
+            <>
+              <Field label="Từ ngày"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls} /></Field>
+              <Field label="Đến ngày"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} /></Field>
+            </>
+          )}
+          {mode === "day" && (
+            <Field label="Ngày nghiệp vụ"><input type="date" value={day} onChange={(e) => setDay(e.target.value)} className={inputCls} /></Field>
+          )}
+          <button type="button" onClick={load} disabled={loading} className={btnPrimary}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Xem báo cáo
+          </button>
         </div>
+      </Card>
+
+      {loading && !data && <Spinner label="Đang tải báo cáo..." />}
+      <ErrorBox message={error} />
+
+      {data && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Summary label="Số báo cáo" value={String(data.totalReports)} />
+            <Summary label="Doanh thu phòng dự kiến" value={vnd(total("expectedRoomRevenue"))} />
+            <Summary label="Doanh thu F&B" value={vnd(total("fnbRevenue"))} />
+            <Summary label="Cọc đã thu" value={vnd(total("depositCollected"))} />
+          </div>
+
+          <Card className="overflow-x-auto p-0">
+            {rows.length === 0 ? (
+              <p className="p-6 text-center text-xs text-slate-400">Không có báo cáo nào khớp bộ lọc.</p>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 dark:bg-slate-800/60">
+                  <tr>
+                    {["Ngày", "Khách sạn", "Khách", "Phòng có khách / trống", "Đặt thành công", "No-show / Hủy", "Cọc thu", "Hoàn", "Phòng", "F&B (thu − chi)", "Trạng thái"].map((h) => (
+                      <th key={h} className="whitespace-nowrap px-3 py-2.5 font-bold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {rows.map((r) => (
+                    <tr key={r.dailyStatisticsId}>
+                      <td className="whitespace-nowrap px-3 py-2.5 font-semibold">{r.businessDate}</td>
+                      <td className="px-3 py-2.5">{names[String(r.propertyId)] ?? `#${r.propertyId}`}</td>
+                      <td className="px-3 py-2.5">{r.guestCount}</td>
+                      <td className="px-3 py-2.5">{r.occupiedRoomCount} / {r.availableRoomCount}</td>
+                      <td className="px-3 py-2.5">{r.successfulReservationCount}</td>
+                      <td className="px-3 py-2.5">{r.noShowCount} / {r.cancelledReservationCount}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5">{vnd(r.depositCollected)}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5">{vnd(r.refundTotal)}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5">{vnd(r.expectedRoomRevenue)}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5">{vnd(r.fnbRevenue)} − {vnd(r.fnbExpense)}</td>
+                      <td className="px-3 py-2.5" title={r.adjustmentReason ?? undefined}>
+                        <Pill tone={r.status === "CONFIRMED" ? "green" : "amber"}>{r.status === "CONFIRMED" ? "Đã chốt" : "Chờ xác nhận"}</Pill>
+                        {r.adjustmentReason && <span className="ml-1 text-[10px] text-slate-400">có điều chỉnh</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </>
       )}
     </div>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <Card className="p-4">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{value}</p>
+    </Card>
   );
 }

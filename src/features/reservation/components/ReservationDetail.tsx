@@ -82,18 +82,18 @@ export function ReservationDetail({ reservation }: { reservation: any }) {
           {reservation.status === "CHECKED_IN" && (
             <>
               <Link
-                href={`/pms/checkout?reservationId=${reservation.id}`}
+                href={`/pms/checkout?code=${encodeURIComponent(reservation.code)}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Tiến hành Check-out</span>
               </Link>
               <Link
-                href={`/pms/folio/${reservation.id}`}
+                href={`/pms/folio/${encodeURIComponent(reservation.code)}`}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl dark:bg-slate-800 dark:text-slate-200"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Thêm phí Folio</span>
+                <span>Xem Folio</span>
               </Link>
               <Link
                 href={`/pms/fnb/orders/new?reservationId=${reservation.id}`}
@@ -107,7 +107,7 @@ export function ReservationDetail({ reservation }: { reservation: any }) {
 
           {reservation.status === "CHECKED_OUT" && (
             <Link
-              href={`/pms/folio/${reservation.id}`}
+              href={`/pms/folio/${encodeURIComponent(reservation.code)}`}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl dark:bg-slate-800 dark:text-slate-200"
             >
               <Receipt className="w-3.5 h-3.5" />

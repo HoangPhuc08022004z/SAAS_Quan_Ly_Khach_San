@@ -1,26 +1,10 @@
-// FR: FR-O12, FR-O23, FR-O26
-// Service: api.getFolio, api.addFolioCharge
+"use client";
 
-import { api } from "@/lib/api";
+// API: GET .../check-out/reservations/{reservationCode}/folio — tham số đường dẫn giờ là MÃ ĐẶT PHÒNG
+import React, { use } from "react";
 import { FolioManager } from "@/features/checkout/components/FolioManager";
 
-export const dynamic = "force-dynamic";
-
-interface FolioPageProps {
-  params: Promise<{ reservationId: string }>;
-}
-
-export default async function FolioDetailPage({ params }: FolioPageProps) {
-  const { reservationId } = await params;
-  const [reservation, folios] = await Promise.all([
-    api.getReservation(reservationId),
-    api.getFolio(reservationId),
-  ]);
-
-  return (
-    <FolioManager
-      initialReservation={reservation}
-      initialFolios={folios}
-    />
-  );
+export default function FolioDetailPage({ params }: { params: Promise<{ reservationId: string }> }) {
+  const { reservationId } = use(params);
+  return <FolioManager reservationCode={decodeURIComponent(reservationId)} />;
 }

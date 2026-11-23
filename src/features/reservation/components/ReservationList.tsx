@@ -123,7 +123,7 @@ export function ReservationList({
 
           {r.status === "CHECKED_IN" && (
             <Link
-              href={`/pms/checkout?reservationId=${r.id}`}
+              href={`/pms/checkout?code=${encodeURIComponent(r.code)}`}
               className="px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1"
             >
               <LogOut className="w-3 h-3" />
