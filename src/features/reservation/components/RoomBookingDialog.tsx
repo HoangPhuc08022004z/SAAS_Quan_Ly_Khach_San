@@ -87,8 +87,10 @@ export function RoomBookingDialog({ propertyId, type, checkIn, checkOut, nights,
     try {
       const payment = await publicApi.createPayment(reservation.reservationCode, contact);
       const session = await publicApi.createCheckoutSession(reservation.reservationCode, payment.reservationPaymentId, contact);
+      if (!session?.checkoutUrl) throw new Error("Backend không trả về link thanh toán. Khách sạn cần cấu hình và bật cổng Stripe (Owner → Khách sạn → Cổng thanh toán).");
       markReservationPayment({ code: reservation.reservationCode, ...contact });
-      window.open(session.checkoutUrl, "_blank", "noopener");
+      // window.open sau await hay bị trình duyệt chặn popup → chuyển thẳng trang hiện tại
+      window.location.href = session.checkoutUrl;
     } catch (err: any) {
       toast.error(err?.message || "Không thể khởi tạo thanh toán.");
     } finally {

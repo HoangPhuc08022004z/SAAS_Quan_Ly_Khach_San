@@ -38,7 +38,7 @@ export function PmsDashboard({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      router.push(`/pms/reservations?q=${encodeURIComponent(searchTerm.trim())}`);
+      router.push(`/pms/checkin?code=${encodeURIComponent(searchTerm.trim())}`);
     }
   };
 

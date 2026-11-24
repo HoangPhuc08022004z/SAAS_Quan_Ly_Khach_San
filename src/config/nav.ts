@@ -32,7 +32,6 @@ export const PMS_NAV: NavItem[] = [
   { title: "Bảng điều khiển", href: "/pms", icon: "LayoutDashboard" },
   { title: "Sơ đồ & Lịch phòng", href: "/pms/rooms", icon: "CalendarDays", permission: "ROOM_VIEW" },
   { title: "Tìm phòng trống", href: "/pms/availability", icon: "Search", permission: "RESERVATION_CREATE" },
-  { title: "Danh sách đặt phòng", href: "/pms/reservations", icon: "BookmarkCheck", permission: "RESERVATION_VIEW" },
   { title: "Lễ tân Check-in", href: "/pms/checkin", icon: "UserCheck", permission: "CHECKIN_EXECUTE" },
   { title: "Thu ngân Check-out", href: "/pms/checkout", icon: "LogOut", permission: "CHECKOUT_VIEW" },
   { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HOUSEKEEPING_VIEW" },

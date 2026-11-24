@@ -23,7 +23,7 @@ export function Topbar({ portal, onOpenMobileMenu, onOpenChatbot }: TopbarProps)
   const handleQuickSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (quickSearch.trim()) {
-      router.push(`/pms/reservations?q=${encodeURIComponent(quickSearch.trim())}`);
+      router.push(`/pms/checkin?code=${encodeURIComponent(quickSearch.trim())}`);
       setQuickSearch("");
     }
   };

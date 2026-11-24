@@ -2,7 +2,7 @@
 
 // API: GET .../check-in/reservations/{code}, GET .../guests, GET .../check-in/rooms/{roomId}/readiness,
 //      POST .../check-in/reservations/{code}/complete  (token nhân viên PMS)
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Search, UserCheck, BedDouble, CheckCircle2, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import {
@@ -22,6 +22,11 @@ import {
 export function CheckinFlow() {
   const { propertyId } = usePmsProperty();
   const [code, setCode] = useState("");
+  // Mở từ trang đặt phòng: ?code=RSV-... → điền sẵn mã
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get("code");
+    if (c) setCode(c);
+  }, []);
   const [contact, setContact] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

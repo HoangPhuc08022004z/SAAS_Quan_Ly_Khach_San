@@ -1,7 +1,7 @@
 "use client";
 
 // API: GET .../check-in/reservations/{code} (tra cứu), GET .../reservations/{code}/refund-quote, POST .../reservations/{code}/cancel
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Search, Calculator, Ban } from "lucide-react";
@@ -22,6 +22,11 @@ import {
 export function CancellationView() {
   const { propertyId } = usePmsProperty();
   const [code, setCode] = useState("");
+  // Mở từ trang đặt phòng: ?code=RSV-... → điền sẵn mã
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get("code");
+    if (c) setCode(c);
+  }, []);
   const [contact, setContact] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -117,7 +117,7 @@ export function BookingWizard({ guests }: { guests: any[] }) {
 
       await api.createDepositPayment(res.id, paymentMethod);
       toast.success("Đặt phòng & thanh toán đặt cọc thành công!");
-      router.push(`/pms/reservations/${res.id}`);
+      router.push("/pms");
     } catch (err: any) {
       if (err?.code === "CONFLICT") {
         setConflictMessage(err.message || "Phòng vừa bị khách khác giữ. Vui lòng chọn lại phòng.");

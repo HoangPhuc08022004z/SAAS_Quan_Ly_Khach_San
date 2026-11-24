@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { MoneyText } from "@/components/data/MoneyText";
 import { markReservationPayment } from "@/lib/payment-return";
+import { saveReservation } from "@/lib/my-reservations";
 import { PaymentCountdown } from "@/features/public/components/PaymentCountdown";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { Users, Bed, Search, Loader2, Hotel, CheckCircle2, CalendarClock, ExternalLink } from "lucide-react";
@@ -145,6 +146,7 @@ export function PropertyGuestView({ propertyId }: { propertyId: string }) {
         },
       });
       setReservation(res);
+      saveReservation({ code: res.reservationCode, email: guest.email.trim() || undefined, phone: guest.phone.trim() || undefined, checkInDate: checkIn });
       toast.success(`Đã giữ phòng! Mã đặt phòng: ${res.reservationCode}`);
     } catch (err: any) {
       toast.error(err?.message || "Không thể tạo đặt phòng.");
@@ -165,6 +167,7 @@ export function PropertyGuestView({ propertyId }: { propertyId: string }) {
         payment.reservationPaymentId,
         contact
       );
+      if (!session?.checkoutUrl) throw new Error("Backend không trả về link thanh toán. Khách sạn cần cấu hình và bật cổng Stripe (Owner → Khách sạn → Cổng thanh toán).");
       markReservationPayment({ code: reservation.reservationCode, ...contact });
       window.location.href = session.checkoutUrl;
     } catch (err: any) {
