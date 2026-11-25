@@ -1,13 +1,8 @@
 // FR: FR-O17, FR-O21
-// Service: api.listFnbMenu
+// Service: GET /api/properties/{id}/fnb-menu (fnbApi.list) — tải ở client vì cần token + propertyId của phiên nhân viên
 
-import { api } from "@/lib/api";
 import { FnbMenuView } from "@/features/fnb/components/FnbMenuView";
 
-export const dynamic = "force-dynamic";
-
-export default async function FnbMenuPage() {
-  const items = await api.listFnbMenu();
-
-  return <FnbMenuView initialItems={items} />;
+export default function FnbMenuPage() {
+  return <FnbMenuView />;
 }

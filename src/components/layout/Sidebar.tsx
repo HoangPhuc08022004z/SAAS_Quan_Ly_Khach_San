@@ -111,6 +111,7 @@ export function Sidebar({ portal, className }: SidebarProps) {
             iconName={item.icon}
             badge={item.badge}
             permission={item.permission}
+            hideForReception={item.hideForReception}
             collapsed={collapsed}
           />
         ))}

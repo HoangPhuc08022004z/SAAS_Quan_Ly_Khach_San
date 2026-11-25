@@ -11,5 +11,8 @@ const strip = (s: string) =>
 /** Vai trò OWNER dành cho chủ khách sạn: backend chặn đăng nhập PMS bằng vai trò này nên không gán cho nhân viên */
 export const isOwnerRole = (name?: string | null) => /^(role_)?owner$/.test(strip(name ?? ""));
 
+/** Vai trò lễ tân (tên backend có thể là RECEPTIONIST / ROLE_RECEPTIONIST / "Lễ tân") */
+export const isReceptionRole = (name?: string | null) => /receptionist|le tan/.test(strip(name ?? ""));
+
 /** Quyền backend trả về có thể mang tiền tố PERM_ */
 export const normalizePermission = (code: string) => code.replace(/^PERM_/, "");

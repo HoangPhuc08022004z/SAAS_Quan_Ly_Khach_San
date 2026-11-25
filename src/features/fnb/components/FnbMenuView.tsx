@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FnbItem } from "@/lib/api/types";
-import { api } from "@/lib/api";
+import { fnbApi, type ApiFnbMenu } from "@/lib/api/property-api";
+import { useSession } from "@/lib/auth/use-session";
 import { FnbMenuItem } from "./FnbMenuItem";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "sonner";
@@ -17,27 +18,54 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
-interface FnbMenuViewProps {
-  initialItems: FnbItem[];
+/** Ánh xạ món từ API thật (GET /api/properties/{id}/fnb-menu) sang model hiển thị. */
+function toItem(m: ApiFnbMenu): FnbItem {
+  return {
+    id: String(m.fnbMenuId),
+    property_id: String(m.propertyId),
+    name: m.name,
+    max_quantity: m.maxQuantity,
+    actual_quantity: m.actualQuantity,
+    purchase_price: m.purchasePrice,
+    profit_percent: m.sellingPricePercent,
+    selling_price: m.sellingPrice,
+    status: m.status,
+  };
 }
 
-export function FnbMenuView({ initialItems }: FnbMenuViewProps) {
-  const [items, setItems] = useState(initialItems);
+export function FnbMenuView() {
+  const { currentPropertyId, property } = useSession();
+  const propertyId = currentPropertyId || property?.id || "";
+  const [items, setItems] = useState<FnbItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterAvailable, setFilterAvailable] = useState<"ALL" | "AVAILABLE" | "OUT_OF_STOCK">("ALL");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  async function refreshItems() {
+  const refreshItems = useCallback(async () => {
+    if (!propertyId) {
+      setLoading(false);
+      return;
+    }
     try {
       setIsRefreshing(true);
-      const res = await api.listFnbMenu();
-      setItems(res);
+      setError(null);
+      const res = await fnbApi.list(propertyId);
+      setItems((res ?? []).map(toItem));
     } catch (err: any) {
-      toast.error(err.message || "Không thể tải lại thực đơn");
+      const msg = err?.message || "Không thể tải thực đơn";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsRefreshing(false);
+      setLoading(false);
     }
-  }
+  }, [propertyId]);
+
+  useEffect(() => {
+    refreshItems();
+  }, [refreshItems]);
 
   const filteredItems = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) {
@@ -151,7 +179,15 @@ export function FnbMenuView({ initialItems }: FnbMenuViewProps) {
       </div>
 
       {/* Grid of Menu Items */}
-      {filteredItems.length === 0 ? (
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Đang tải thực đơn...</p>
+      ) : error ? (
+        <EmptyState
+          icon={<Utensils className="w-6 h-6" />}
+          title="Không tải được thực đơn"
+          description={error}
+        />
+      ) : filteredItems.length === 0 ? (
         <EmptyState
           icon={<Utensils className="w-6 h-6" />}
           title="Không tìm thấy món ăn nào"

@@ -2,7 +2,6 @@
 
 // API: GET .../check-in/reservations/{code} (tra cứu), GET .../reservations/{code}/refund-quote, POST .../reservations/{code}/cancel
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { Search, Calculator, Ban } from "lucide-react";
 import {
@@ -148,7 +147,7 @@ export function CancellationView() {
         <Card className="space-y-2 border-emerald-200 bg-emerald-50/50 text-xs dark:border-emerald-900">
           <p className="text-sm font-bold text-emerald-700">Đã hủy {result.reservationCode}</p>
           <p>Hoàn tiền: {vnd(result.refundAmount)} · trạng thái {result.refundStatus ?? "-"}</p>
-          <Link href="/pms/refunds" className={btnGhost}>Tạo / theo dõi yêu cầu hoàn tiền</Link>
+          <a href="#hoan-tien" className={btnGhost}>Tạo / theo dõi yêu cầu hoàn tiền</a>
         </Card>
       )}
 

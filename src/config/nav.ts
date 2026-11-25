@@ -4,6 +4,8 @@ export interface NavItem {
   icon: string;
   badge?: string;
   permission?: string;
+  /** Ẩn với vai trò lễ tân dù backend có cấp quyền xem (họ không thao tác được) */
+  hideForReception?: boolean;
 }
 
 export const ADMIN_NAV: NavItem[] = [
@@ -29,16 +31,12 @@ export const OWNER_NAV: NavItem[] = [
 ];
 
 export const PMS_NAV: NavItem[] = [
-  { title: "Bảng điều khiển", href: "/pms", icon: "LayoutDashboard" },
-  { title: "Sơ đồ & Lịch phòng", href: "/pms/rooms", icon: "CalendarDays", permission: "ROOM_VIEW" },
   { title: "Tìm phòng trống", href: "/pms/availability", icon: "Search", permission: "RESERVATION_CREATE" },
   { title: "Lễ tân Check-in", href: "/pms/checkin", icon: "UserCheck", permission: "CHECKIN_EXECUTE" },
   { title: "Thu ngân Check-out", href: "/pms/checkout", icon: "LogOut", permission: "CHECKOUT_VIEW" },
-  { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HOUSEKEEPING_VIEW" },
+  { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HOUSEKEEPING_VIEW", hideForReception: true },
   { title: "Dịch vụ F&B", href: "/pms/fnb/menu", icon: "Utensils", permission: "MENU_VIEW" },
-  { title: "Dịch vụ khách sạn", href: "/pms/services", icon: "ConciergeBell", permission: "GUEST_SERVICE_CREATE" },
   { title: "Hủy & Hoàn tiền", href: "/pms/cancellations", icon: "RotateCcw", permission: "RESERVATION_CANCEL" },
-  { title: "Hoàn tiền", href: "/pms/refunds", icon: "Wallet", permission: "REFUND_VIEW" },
   // API no-show yêu cầu quyền RESERVATION_VIEW (theo OpenAPI), không phải NO_SHOW_VIEW
   { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "RESERVATION_VIEW" },
   { title: "Chốt ngày (Night Audit)", href: "/pms/night-audit", icon: "Moon", permission: "NIGHT_AUDIT_VIEW" },

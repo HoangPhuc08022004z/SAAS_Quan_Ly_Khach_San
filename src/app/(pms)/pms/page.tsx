@@ -1,43 +1,29 @@
-// FR: FR-O01
-// Service: api.searchReservations, api.getRoomBoard, api.listNoShowCandidates, api.listFnbRequests
-import React from "react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { PmsDashboard } from "@/features/reservation/components/PmsDashboard";
-import { api } from "@/lib/api";
+"use client";
 
-export const dynamic = "force-dynamic";
+// Không có bảng điều khiển: /pms chuyển thẳng tới màn đầu tiên mà vai trò hiện tại dùng được
+// (lễ tân → Tìm phòng trống, buồng phòng → Quản lý buồng phòng...).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { PMS_NAV } from "@/config/nav";
+import { isReceptionRole, normalizePermission } from "@/config/roles";
+import { useSessionStore } from "@/lib/auth/session-store";
 
-export default async function PmsDashboardPage() {
-  const [reservations, roomBoard, noShowCandidates, fnbRequests] = await Promise.all([
-    api.searchReservations({}),
-    api.getRoomBoard("2026-10-11"),
-    api.listNoShowCandidates(),
-    api.listFnbRequests("PENDING"),
-  ]);
+export default function PmsLandingPage() {
+  const router = useRouter();
+  const { permissions, role, account } = useSessionStore();
 
-  const arrivals = reservations.filter(
-    (r: any) => r.check_in_date === "2026-10-11" && r.status === "CONFIRMED"
-  );
-  const departures = reservations.filter(
-    (r: any) => r.check_out_date === "2026-10-11" && r.status === "CHECKED_IN"
-  );
-  const dirtyRooms = roomBoard.filter(
-    (r: any) => r.status === "VACANT_DIRTY" || r.status === "CLEANING"
-  );
+  useEffect(() => {
+    const granted = new Set(permissions.map(normalizePermission));
+    const isReception = isReceptionRole(role?.code) || isReceptionRole(role?.name);
+    const target =
+      PMS_NAV.find(
+        (i) =>
+          i.permission &&
+          (account?.is_admin || granted.has(i.permission)) &&
+          !(i.hideForReception && isReception)
+      )?.href ?? "/pms/profile";
+    router.replace(target);
+  }, [permissions, role, account, router]);
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Bàn Làm Việc Tiền Sảnh (PMS Overview)"
-        description="Theo dõi danh sách khách đến, khách đi, trạng thái buồng phòng và các việc cần xử lý ngay trong ngày."
-      />
-      <PmsDashboard
-        arrivals={arrivals}
-        departures={departures}
-        dirtyRooms={dirtyRooms}
-        fnbRequests={fnbRequests}
-        noShowCandidates={noShowCandidates}
-      />
-    </div>
-  );
+  return <p className="text-sm text-muted-foreground">Đang chuyển trang...</p>;
 }
