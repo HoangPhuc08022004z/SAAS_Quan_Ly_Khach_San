@@ -1,11 +1,13 @@
+import type { PmsRoleKey } from "./roles";
+
 export interface NavItem {
   title: string;
   href: string;
   icon: string;
   badge?: string;
   permission?: string;
-  /** Ẩn với vai trò lễ tân dù backend có cấp quyền xem (họ không thao tác được) */
-  hideForReception?: boolean;
+  /** Backend khóa cứng API theo role (dù role khác có quyền vẫn bị 403) → chỉ hiện với các role này */
+  roles?: PmsRoleKey[];
 }
 
 export const ADMIN_NAV: NavItem[] = [
@@ -32,14 +34,13 @@ export const OWNER_NAV: NavItem[] = [
 
 export const PMS_NAV: NavItem[] = [
   { title: "Tìm phòng trống", href: "/pms/availability", icon: "Search", permission: "RESERVATION_CREATE" },
-  { title: "Lễ tân Check-in", href: "/pms/checkin", icon: "UserCheck", permission: "CHECKIN_EXECUTE" },
+  { title: "Lễ tân Check-in", href: "/pms/checkin", icon: "UserCheck", permission: "CHECKIN_EXECUTE", roles: ["RECEPTIONIST"] },
   { title: "Thu ngân Check-out", href: "/pms/checkout", icon: "LogOut", permission: "CHECKOUT_VIEW" },
-  { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HOUSEKEEPING_VIEW", hideForReception: true },
-  { title: "Dịch vụ F&B", href: "/pms/fnb/menu", icon: "Utensils", permission: "MENU_VIEW" },
+  { title: "Quản lý buồng phòng", href: "/pms/housekeeping", icon: "Sparkles", permission: "HOUSEKEEPING_VIEW", roles: ["HOUSEKEEPER"] },
   { title: "Hủy & Hoàn tiền", href: "/pms/cancellations", icon: "RotateCcw", permission: "RESERVATION_CANCEL" },
   // API no-show yêu cầu quyền RESERVATION_VIEW (theo OpenAPI), không phải NO_SHOW_VIEW
-  { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "RESERVATION_VIEW" },
-  { title: "Chốt ngày (Night Audit)", href: "/pms/night-audit", icon: "Moon", permission: "NIGHT_AUDIT_VIEW" },
+  { title: "Xử lý No-Show", href: "/pms/no-show", icon: "UserX", permission: "RESERVATION_VIEW", roles: ["RECEPTIONIST"] },
+  { title: "Chốt ngày (Night Audit)", href: "/pms/night-audit", icon: "Moon", permission: "NIGHT_AUDIT_VIEW", roles: ["MANAGER"] },
   { title: "Báo cáo vận hành", href: "/pms/reports", icon: "TrendingUp", permission: "PROPERTY_REPORT_CONFIRM" },
   { title: "Trợ lý Chatbot AI", href: "/pms/chat", icon: "Bot", permission: "CHATBOT_HOTEL_INFO" },
   { title: "Hồ sơ cá nhân", href: "/pms/profile", icon: "UserCircle" },

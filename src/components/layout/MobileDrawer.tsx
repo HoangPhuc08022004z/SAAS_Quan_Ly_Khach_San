@@ -42,7 +42,7 @@ export function MobileDrawer({ portal, isOpen, onClose }: MobileDrawerProps) {
               iconName={item.icon}
               badge={item.badge}
               permission={item.permission}
-              hideForReception={item.hideForReception}
+              roles={item.roles}
             />
           ))}
         </nav>

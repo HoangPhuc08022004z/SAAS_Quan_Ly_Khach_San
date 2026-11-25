@@ -18,6 +18,25 @@ const STATUS_BUTTONS: { value: HousekeepingRoomStatus; label: string; cls: strin
   { value: "READY", label: "Sẵn sàng", cls: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" },
 ];
 
+/**
+ * Quy tắc backend (UpdateRoomStatusService): DIRTY → CLEANING → READY; từ trạng thái khác chỉ được về DIRTY.
+ * API lịch buồng phòng KHÔNG trả trạng thái hiện tại của phòng, nên khi chưa biết thì cho thử cả ba nút.
+ */
+function nextAllowed(current?: string): HousekeepingRoomStatus[] {
+  switch (current?.toUpperCase()) {
+    case undefined:
+    case "":
+    case "UNKNOWN":
+      return ["DIRTY", "CLEANING", "READY"];
+    case "DIRTY":
+      return ["CLEANING"];
+    case "CLEANING":
+      return ["READY"];
+    default:
+      return ["DIRTY"];
+  }
+}
+
 export function HousekeepingView() {
   const { propertyId } = usePmsProperty();
   const [date, setDate] = useState(todayIso());
@@ -54,7 +73,14 @@ export function HousekeepingView() {
       setRoomState((s) => ({ ...s, [roomId]: res.currentStatus }));
       toast.success(`Phòng ${res.roomNumber}: ${res.previousStatus} → ${res.currentStatus}`);
     } catch (e: any) {
-      toast.error(e?.message || "Không đổi được trạng thái phòng.");
+      // Backend trả "Invalid status transition: A -> B" → biết trạng thái thật của phòng để hiển thị đúng nút
+      const m = /transition:\s*([A-Z_]*)\s*->/i.exec(e?.message ?? "");
+      if (m) setRoomState((st) => ({ ...st, [roomId]: m[1].toUpperCase() || "UNKNOWN" }));
+      toast.error(
+        m
+          ? `Không chuyển được: phòng đang ở trạng thái ${m[1] || "chưa xác định"}. Quy trình: Bẩn → Đang dọn → Sẵn sàng.`
+          : e?.message || "Không đổi được trạng thái phòng."
+      );
     } finally {
       setBusy(null);
     }
@@ -88,7 +114,10 @@ export function HousekeepingView() {
           <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
             <Sparkles className="h-4 w-4 text-blue-600" /> Công việc ngày <DateText date={date} /> ({items.length})
           </h3>
-          {items.length === 0 && <p className="text-xs text-slate-400">Không có công việc buồng phòng nào trong ngày này.</p>}
+          {items.length === 0 && <p className="text-xs text-slate-400">Không có phòng nào gắn với đặt phòng trong ngày này.</p>}
+          <p className="text-[11px] text-slate-400">
+            Danh sách chỉ gồm các phòng có đặt phòng (đến, ở, trả) trong ngày; API chưa trả trạng thái sạch/bẩn hiện tại của từng phòng.
+          </p>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {items.map((w) => (
               <div key={`${w.reservationId}-${w.roomId}-${w.taskType}`} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
@@ -105,7 +134,7 @@ export function HousekeepingView() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   {roomState[w.roomId] && <Pill tone="slate">Hiện tại: {roomState[w.roomId]}</Pill>}
-                  {STATUS_BUTTONS.map((b) => (
+                  {STATUS_BUTTONS.filter((b) => nextAllowed(roomState[w.roomId]).includes(b.value)).map((b) => (
                     <button
                       key={b.value}
                       type="button"

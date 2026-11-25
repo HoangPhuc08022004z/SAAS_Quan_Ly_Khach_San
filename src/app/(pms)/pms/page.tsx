@@ -5,7 +5,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PMS_NAV } from "@/config/nav";
-import { isReceptionRole, normalizePermission } from "@/config/roles";
+import { matchesPmsRole, normalizePermission } from "@/config/roles";
 import { useSessionStore } from "@/lib/auth/session-store";
 
 export default function PmsLandingPage() {
@@ -14,13 +14,12 @@ export default function PmsLandingPage() {
 
   useEffect(() => {
     const granted = new Set(permissions.map(normalizePermission));
-    const isReception = isReceptionRole(role?.code) || isReceptionRole(role?.name);
     const target =
       PMS_NAV.find(
         (i) =>
           i.permission &&
           (account?.is_admin || granted.has(i.permission)) &&
-          !(i.hideForReception && isReception)
+          (!i.roles || matchesPmsRole(role, i.roles))
       )?.href ?? "/pms/profile";
     router.replace(target);
   }, [permissions, role, account, router]);

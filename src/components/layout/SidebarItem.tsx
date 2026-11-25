@@ -7,7 +7,7 @@ import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useCan } from "@/lib/auth/use-can";
 import { useSessionStore } from "@/lib/auth/session-store";
-import { isReceptionRole } from "@/config/roles";
+import { matchesPmsRole, type PmsRoleKey } from "@/config/roles";
 
 interface SidebarItemProps {
   title: string;
@@ -15,7 +15,7 @@ interface SidebarItemProps {
   iconName: string;
   badge?: string;
   permission?: string;
-  hideForReception?: boolean;
+  roles?: PmsRoleKey[];
   collapsed?: boolean;
 }
 
@@ -25,7 +25,7 @@ export function SidebarItem({
   iconName,
   badge,
   permission,
-  hideForReception,
+  roles,
   collapsed = false,
 }: SidebarItemProps) {
   const pathname = usePathname();
@@ -33,7 +33,7 @@ export function SidebarItem({
 
   const role = useSessionStore((s) => s.role);
   if (!canAccess) return null;
-  if (hideForReception && (isReceptionRole(role?.code) || isReceptionRole(role?.name))) return null;
+  if (roles && !matchesPmsRole(role, roles)) return null;
 
   const isActive = pathname === href || (href !== "/" && pathname.startsWith(href) && href.length > 5);
   // @ts-expect-error icon dynamic lookup

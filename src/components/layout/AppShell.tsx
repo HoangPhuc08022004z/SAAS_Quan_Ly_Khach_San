@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { PMS_NAV } from "@/config/nav";
 import { useCan } from "@/lib/auth/use-can";
 import { useSessionStore } from "@/lib/auth/session-store";
-import { isReceptionRole } from "@/config/roles";
+import { matchesPmsRole } from "@/config/roles";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { MobileDrawer } from "./MobileDrawer";
@@ -48,8 +48,9 @@ export function AppShell({ portal, children }: AppShellProps) {
   const role = useSessionStore((s) => s.role);
   const hiddenForRole =
     portal === "pms" &&
-    (isReceptionRole(role?.code) || isReceptionRole(role?.name)) &&
-    PMS_NAV.some((i) => i.hideForReception && (pathname === i.href || pathname.startsWith(`${i.href}/`)));
+    PMS_NAV.some(
+      (i) => i.roles && !matchesPmsRole(role, i.roles) && (pathname === i.href || pathname.startsWith(`${i.href}/`))
+    );
   const hasPermission = useCan(required) && !hiddenForRole;
   useEffect(() => {
     if (hydrated && allowed && !hasPermission) router.replace("/pms");
